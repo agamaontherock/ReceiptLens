@@ -52,6 +52,7 @@ class Item(models.Model):
 class CategoryRule(models.Model):
     BARCODE = "barcode"
     NAME = "name"
+    KEYWORD = "keyword"
     key_type = models.CharField(max_length=8, default=BARCODE)
     key_value = models.CharField(max_length=255, db_index=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
