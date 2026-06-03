@@ -1,0 +1,27 @@
+<div class="alert alert-danger">
+  <strong>Помилка:</strong> {{ error }}
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h6 class="card-title">Спробуйте ще раз або вставте XML вручну</h6>
+    <a href="{% url 'scan' %}" class="btn btn-outline-secondary btn-sm mb-3">
+      <i class="bi bi-arrow-left"></i> Назад до сканування
+    </a>
+    <form hx-post="{% url 'receipts_parse' %}"
+          hx-target="#review-container"
+          hx-swap="innerHTML"
+          hx-indicator="#spinner">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label">checkXml (base64)</label>
+        <textarea name="check_xml_b64" class="form-control font-monospace" rows="4"
+                  placeholder="Вставте значення поля checkXml з відповіді API..."></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">
+        <span id="spinner" class="htmx-indicator spinner-border spinner-border-sm me-1"></span>
+        Розпарсити XML
+      </button>
+    </form>
+  </div>
+</div>

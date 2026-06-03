@@ -1,0 +1,121 @@
+{% extends "receipts/base.html" %}
+{% block title %}Ввести вручну — ReceiptLens{% endblock %}
+
+{% block content %}
+<h2 class="mb-3">Ввести чек вручну</h2>
+
+<form method="post" action="{% url 'receipts_save' %}" x-data="manualForm()">
+  {% csrf_token %}
+  <input type="hidden" name="source" value="manual">
+  <input type="hidden" :name="'item_count'" :value="rows.length">
+  <input type="hidden" name="fiscal_rro" value="manual">
+  <input type="hidden" name="legal_name" value="">
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="card-title">Деталі чеку</h5>
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label class="form-label">Магазин</label>
+          <input type="text" name="display_name" class="form-control"
+                 placeholder="Назва магазину">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Дата та час</label>
+          <input type="datetime-local" name="receipt_datetime" class="form-control"
+                 value="{{ now|date:'Y-m-d' }}T{{ now|date:'H:i' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Сума ₴</label>
+          <input type="number" step="0.01" name="receipt_total" class="form-control"
+                 placeholder="0.00">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Назва</th>
+              <th style="width:80px">К-сть</th>
+              <th style="width:60px">Од.</th>
+              <th style="width:90px">Ціна</th>
+              <th style="width:90px">Сума</th>
+              <th style="width:160px">Категорія</th>
+              <th style="width:40px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(row, i) in rows" :key="row.id">
+              <tr>
+                <input type="hidden" :name="'barcode_' + i" value="">
+                <input type="hidden" :name="'code_' + i" value="">
+                <td>
+                  <input type="text" :name="'name_' + i" class="form-control form-control-sm"
+                         x-model="row.name" placeholder="Назва товару">
+                </td>
+                <td>
+                  <input type="number" step="0.001" :name="'qty_' + i"
+                         class="form-control form-control-sm" x-model.number="row.qty">
+                </td>
+                <td>
+                  <select :name="'unit_' + i" class="form-select form-select-sm" x-model="row.unit">
+                    <option value="pcs">шт</option>
+                    <option value="kg">кг</option>
+                  </select>
+                </td>
+                <td>
+                  <input type="number" step="0.01" :name="'price_' + i"
+                         class="form-control form-control-sm" x-model.number="row.price">
+                </td>
+                <td>
+                  <span x-text="(row.qty * row.price).toFixed(2)" class="fw-semibold"></span>
+                  <input type="hidden" :name="'total_' + i" :value="(row.qty * row.price).toFixed(2)">
+                </td>
+                <td>
+                  <select :name="'category_id_' + i" class="form-select form-select-sm">
+                    <option value="">—</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.pk }}">{{ cat.name }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <button type="button" class="btn btn-sm btn-outline-danger" @click="rows.splice(i,1)">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer">
+      <button type="button" class="btn btn-outline-secondary btn-sm" @click="addRow()">
+        <i class="bi bi-plus-circle"></i> Додати рядок
+      </button>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-success">
+    <i class="bi bi-check-circle"></i> Зберегти чек
+  </button>
+</form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function manualForm() {
+  return {
+    rows: [{ id: 1, name: '', qty: 1, unit: 'pcs', price: 0 }],
+    _nextId: 2,
+    addRow() { this.rows.push({ id: this._nextId++, name: '', qty: 1, unit: 'pcs', price: 0 }); }
+  }
+}
+</script>
+{% endblock %}

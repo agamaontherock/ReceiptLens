@@ -1,0 +1,98 @@
+{% extends "receipts/base.html" %}
+{% block title %}Чек #{{ receipt.pk }} — ReceiptLens{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Чек #{{ receipt.pk }}</h2>
+  <div class="d-flex gap-2">
+    <a href="/" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Назад
+    </a>
+    <button type="button" class="btn btn-outline-danger btn-sm"
+            data-bs-toggle="modal" data-bs-target="#deleteModal">
+      <i class="bi bi-trash"></i> Видалити
+    </button>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Магазин</dt>
+      <dd class="col-sm-9">{{ receipt.store }}</dd>
+      <dt class="col-sm-3">Дата/час</dt>
+      <dd class="col-sm-9">{{ receipt.datetime|date:"d.m.Y H:i" }}</dd>
+      <dt class="col-sm-3">РРО</dt>
+      <dd class="col-sm-9">{{ receipt.fn }}</dd>
+      <dt class="col-sm-3">Джерело</dt>
+      <dd class="col-sm-9">{{ receipt.source }}</dd>
+      <dt class="col-sm-3">Сума</dt>
+      <dd class="col-sm-9"><strong>{{ receipt.total|floatformat:2 }} ₴</strong></dd>
+    </dl>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover">
+    <thead class="table-light">
+      <tr>
+        <th>#</th>
+        <th>Назва</th>
+        <th>К-сть</th>
+        <th>Ціна</th>
+        <th>Сума</th>
+        <th>Категорія</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ item.name }}</td>
+        <td>{{ item.qty }} {{ item.unit }}</td>
+        <td>{{ item.unit_price|floatformat:2 }} ₴</td>
+        <td>{{ item.total|floatformat:2 }} ₴</td>
+        <td>
+          {% if item.category %}
+            <span class="badge bg-info text-dark">{{ item.category }}</span>
+          {% else %}
+            <span class="text-muted small">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="table-active fw-bold">
+        <td colspan="4">Разом</td>
+        <td>{{ receipt.total|floatformat:2 }} ₴</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Видалити чек?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-1">{{ receipt.store }} · {{ receipt.datetime|date:"d.m.Y H:i" }}</p>
+        <p class="mb-0 fw-bold">{{ receipt.total|floatformat:2 }} ₴ · {{ items|length }} позицій</p>
+        <p class="mt-2 text-muted small">Цю дію не можна скасувати.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+        <form method="post" action="{% url 'receipt_delete' receipt.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash"></i> Видалити
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

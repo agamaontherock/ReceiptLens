@@ -1,0 +1,95 @@
+{% load l10n %}
+<form method="post" action="{% url 'receipts_save' %}">
+  {% csrf_token %}
+  <input type="hidden" name="item_count" value="{{ items|length }}">
+  <input type="hidden" name="source" value="qr">
+  <input type="hidden" name="check_id" value="{{ receipt.order_num }}">
+  <input type="hidden" name="fn" value="{{ receipt.fiscal_rro }}">
+  <input type="hidden" name="receipt_datetime" value="{{ receipt.datetime }}">
+  <input type="hidden" name="receipt_total" value="{{ receipt.total|unlocalize }}">
+  <input type="hidden" name="legal_name" value="{{ receipt.org_legal_name }}">
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="card-title">Магазин</h5>
+      <p class="mb-1 text-muted small">{{ receipt.org_legal_name }} · РРО {{ receipt.fiscal_rro }}</p>
+      <p class="mb-2 text-muted small">{{ receipt.point_address }}</p>
+      <input type="hidden" name="fiscal_rro" value="{{ receipt.fiscal_rro }}">
+      <div class="mb-0">
+        <label class="form-label mb-1">Назва магазину (псевдонім)</label>
+        <input type="text" name="display_name" class="form-control form-control-sm"
+               value="{{ store.display_name|default:'' }}"
+               placeholder="Напр: Сільпо Пасічна">
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Назва</th>
+              <th style="width:80px">К-сть</th>
+              <th style="width:60px">Од.</th>
+              <th style="width:90px">Ціна</th>
+              <th style="width:90px">Сума</th>
+              <th style="width:160px">Категорія</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for it in items %}
+            <tr x-data="{ qty: {{ it.qty|unlocalize }}, price: {{ it.unit_price|unlocalize }} }">
+              <input type="hidden" name="barcode_{{ forloop.counter0 }}" value="{{ it.barcode }}">
+              <input type="hidden" name="code_{{ forloop.counter0 }}" value="{{ it.code }}">
+              <td>
+                <input type="text" name="name_{{ forloop.counter0 }}"
+                       class="form-control form-control-sm" value="{{ it.name }}">
+              </td>
+              <td>
+                <input type="number" step="0.001" name="qty_{{ forloop.counter0 }}"
+                       class="form-control form-control-sm"
+                       x-model.number="qty" value="{{ it.qty|unlocalize }}">
+              </td>
+              <td>
+                <select name="unit_{{ forloop.counter0 }}" class="form-select form-select-sm">
+                  <option value="pcs" {% if it.unit == "pcs" %}selected{% endif %}>шт</option>
+                  <option value="kg" {% if it.unit == "kg" %}selected{% endif %}>кг</option>
+                </select>
+              </td>
+              <td>
+                <input type="number" step="0.01" name="price_{{ forloop.counter0 }}"
+                       class="form-control form-control-sm"
+                       x-model.number="price" value="{{ it.unit_price|unlocalize }}">
+              </td>
+              <td>
+                <span x-text="(qty * price).toFixed(2)" class="fw-semibold"></span>
+                <input type="hidden" :name="'total_{{ forloop.counter0 }}'" :value="(qty * price).toFixed(2)">
+              </td>
+              <td>
+                <select name="category_id_{{ forloop.counter0 }}" class="form-select form-select-sm">
+                  <option value="">— без категорії —</option>
+                  {% for cat in categories %}
+                    <option value="{{ cat.pk }}"
+                      {% if cat.pk == it.suggested_category_id %}selected{% endif %}>
+                      {{ cat.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center">
+    <span class="text-muted">Разом: <strong>{{ receipt.total }} ₴</strong></span>
+    <button type="submit" class="btn btn-success">
+      <i class="bi bi-check-circle"></i> Зберегти чек
+    </button>
+  </div>
+</form>

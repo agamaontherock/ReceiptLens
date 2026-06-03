@@ -1,0 +1,79 @@
+{% extends "receipts/base.html" %}
+{% block title %}Сканувати — ReceiptLens{% endblock %}
+
+{% block extra_head %}
+<script src="https://unpkg.com/html5-qrcode@latest/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+{% endblock %}
+
+{% block content %}
+<h2 class="mb-3">Сканувати чек</h2>
+
+<ul class="nav nav-tabs mb-3" id="scanTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="camera-tab" data-bs-toggle="tab"
+            data-bs-target="#camera-pane" type="button" role="tab">
+      <i class="bi bi-camera-video"></i> Камера
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="file-tab" data-bs-toggle="tab"
+            data-bs-target="#file-pane" type="button" role="tab">
+      <i class="bi bi-image"></i> Фото
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content mb-3">
+  <div class="tab-pane fade show active" id="camera-pane" role="tabpanel">
+    <div id="reader" class="border rounded" style="max-width:500px"></div>
+  </div>
+  <div class="tab-pane fade" id="file-pane" role="tabpanel">
+    <div class="card" style="max-width:500px">
+      <div class="card-body">
+        <label for="qr-file" class="form-label">Виберіть фото з QR-кодом</label>
+        <input type="file" class="form-control" id="qr-file" accept="image/*">
+        <div id="file-preview" class="mt-3 d-none">
+          <img id="preview-img" class="img-fluid rounded mb-2" style="max-height:300px" alt="">
+          <div>
+            <button type="button" id="scan-file-btn" class="btn btn-primary">
+              <span id="file-spinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
+              <i class="bi bi-qr-code-scan" id="scan-icon"></i> Сканувати QR
+            </button>
+          </div>
+        </div>
+        <div id="file-error" class="alert alert-warning mt-2 d-none"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="review-container" data-parse-url="{% url 'receipts_parse' %}">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Або вставте URL вручну</h5>
+      <form id="parse-form"
+            hx-post="{% url 'receipts_parse' %}"
+            hx-target="#review-container"
+            hx-swap="innerHTML"
+            hx-indicator="#spinner">
+        {% csrf_token %}
+        <input type="hidden" name="qr_url" id="qr-input">
+        <div class="mb-3">
+          <input type="text" class="form-control" id="qr-manual"
+                 placeholder="https://cabinet.tax.gov.ua/cashregs/check?..."
+                 oninput="document.getElementById('qr-input').value=this.value">
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <span id="spinner" class="htmx-indicator spinner-border spinner-border-sm me-1"></span>
+          Отримати дані
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/scan.js"></script>
+{% endblock %}

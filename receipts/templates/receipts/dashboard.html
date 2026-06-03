@@ -1,0 +1,65 @@
+{% extends "receipts/base.html" %}
+{% block title %}Dashboard — ReceiptLens{% endblock %}
+{% block content %}
+<h2 class="mb-4">Головна</h2>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card text-bg-primary">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-1 opacity-75">Цього місяця</h6>
+        <p class="card-text fs-3 fw-bold mb-0">{{ this_month_total|floatformat:2 }} ₴</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-bg-secondary">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-1 opacity-75">Минулого місяця</h6>
+        <p class="card-text fs-3 fw-bold mb-0">{{ last_month_total|floatformat:2 }} ₴</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-1 text-muted">Топ категорії</h6>
+        {% for cat in top_categories %}
+          <div class="d-flex justify-content-between small">
+            <span>{{ cat.category__name }}</span>
+            <span class="text-muted">{{ cat.total|floatformat:2 }} ₴</span>
+          </div>
+        {% empty %}
+          <p class="small text-muted mb-0">Ще немає даних</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4>Останні чеки</h4>
+  <a href="{% url 'scan' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-qr-code-scan"></i> Новий чек
+  </a>
+</div>
+
+{% if recent %}
+<div class="list-group">
+  {% for r in recent %}
+  <a href="{% url 'receipt_detail' r.pk %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+    <div>
+      <strong>{{ r.store }}</strong>
+      <small class="text-muted ms-2">{{ r.datetime|date:"d.m.Y H:i" }}</small>
+    </div>
+    <span class="badge bg-primary rounded-pill">{{ r.total|floatformat:2 }} ₴</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-receipt fs-1"></i>
+  <p class="mt-2">Чеків ще немає. <a href="{% url 'scan' %}">Відскануйте перший!</a></p>
+</div>
+{% endif %}
+{% endblock %}

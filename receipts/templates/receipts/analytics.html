@@ -1,0 +1,98 @@
+{% extends "receipts/base.html" %}
+{% block title %}Аналітика — ReceiptLens{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Аналітика</h2>
+</div>
+
+<form method="get" class="row g-2 mb-4 align-items-end">
+  <div class="col-auto">
+    <label class="form-label mb-1">Від</label>
+    <input type="date" name="from_date" class="form-control form-control-sm" value="{{ from_date }}">
+  </div>
+  <div class="col-auto">
+    <label class="form-label mb-1">До</label>
+    <input type="date" name="to_date" class="form-control form-control-sm" value="{{ to_date }}">
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-primary btn-sm">Застосувати</button>
+  </div>
+</form>
+
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">За категоріями</h5>
+        <canvas id="catChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">За магазинами</h5>
+        <canvas id="storeChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Витрати по місяцях</h5>
+        <canvas id="monthChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const CAT_DATA = {{ cat_data|safe }};
+const STORE_DATA = {{ store_data|safe }};
+const MONTH_DATA = {{ month_data|safe }};
+
+const PALETTE = ['#0d6efd','#6610f2','#6f42c1','#d63384','#dc3545',
+                 '#fd7e14','#ffc107','#198754','#20c997','#0dcaf0'];
+
+function mkChart(id, type, data, extra) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  new Chart(ctx, {
+    type,
+    data: {
+      labels: data.labels,
+      datasets: [{
+        data: data.values,
+        backgroundColor: PALETTE,
+        borderColor: type === 'line' ? '#0d6efd' : PALETTE,
+        borderWidth: type === 'line' ? 2 : 1,
+        fill: type === 'line',
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: type === 'doughnut' } },
+      ...extra
+    }
+  });
+}
+
+mkChart('catChart', 'doughnut', CAT_DATA, {});
+mkChart('storeChart', 'bar', STORE_DATA, {
+  plugins: { legend: { display: false } },
+  scales: { y: { ticks: { callback: v => v + ' ₴' } } }
+});
+mkChart('monthChart', 'line', MONTH_DATA, {
+  plugins: { legend: { display: false } },
+  scales: { y: { ticks: { callback: v => v + ' ₴' } } }
+});
+</script>
+{% endblock %}
