@@ -11,6 +11,18 @@ DEBUG = os.environ.get("DEBUG", "True").lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost 127.0.0.1").split()
 
+# Render (and most PaaS) terminate TLS at a reverse proxy and forward requests
+# over HTTP internally. This tells Django to trust the X-Forwarded-Proto header
+# so request.is_secure() and CSRF work correctly.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    "CSRF_TRUSTED_ORIGINS", "https://*.onrender.com"
+).split()
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -67,6 +79,7 @@ if _db_url.startswith("postgres"):
                 "PASSWORD": password,
                 "HOST": host,
                 "PORT": port or "5432",
+                "CONN_MAX_AGE": 60,
             }
         }
     else:
