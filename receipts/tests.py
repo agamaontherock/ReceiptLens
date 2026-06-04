@@ -58,7 +58,8 @@ RQ_XML = _b64("""
     <C T="0">
       <P TX="1" CD="2732485" SM="7175" NM="БананКг" C="32485" Q="958" N="1" PRC="7490"/>
       <P TX="1" CD="4820272180196" SM="6699" NM="Мол840ПастерФерм2,5%" C="837449" Q="1000" N="2" PRC="6699"/>
-      <E SM="13874" TS="20260529193437" FN="4000530835" N="3"/>
+      <P TX="1" CD="1234567890" SM="4833" NM="ВБ МАФIН" C="999" Q="0" N="3" PRC="0"/>
+      <E SM="18707" TS="20260529193437" FN="4000530835" N="4"/>
     </C>
     <TS/>
   </DAT>
@@ -155,11 +156,11 @@ class RQSchemaTests(TestCase):
         self.assertEqual(self.receipt.datetime, "2026-05-29 19:34:37")
 
     def test_total_converted_from_kopecks(self):
-        # SM="13874" → 138.74 UAH
-        self.assertEqual(self.receipt.total, Decimal("138.74"))
+        # SM="18707" → 187.07 UAH
+        self.assertEqual(self.receipt.total, Decimal("187.07"))
 
     def test_item_count(self):
-        self.assertEqual(len(self.receipt.items), 2)
+        self.assertEqual(len(self.receipt.items), 3)
 
     def test_item_price_converted_from_kopecks(self):
         # PRC="7490" → 74.90 UAH
@@ -191,6 +192,14 @@ class RQSchemaTests(TestCase):
     def test_item_name(self):
         banana = self.receipt.items[0]
         self.assertEqual(banana.name, "БананКг")
+
+    def test_zero_qty_item_treated_as_single_unit(self):
+        # METRO stores Q=0 PRC=0 for single-unit items; parser should default qty=1
+        muffin = self.receipt.items[2]
+        self.assertEqual(muffin.qty, Decimal("1"))
+        self.assertEqual(muffin.unit, "pcs")
+        self.assertEqual(muffin.unit_price, Decimal("48.33"))
+        self.assertEqual(muffin.total, Decimal("48.33"))
 
 
 # ---------------------------------------------------------------------------

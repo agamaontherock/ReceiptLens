@@ -107,8 +107,13 @@ def _parse_rq(root: ET.Element) -> Receipt:
     if c_el is not None:
         for p_el in c_el.findall("P"):
             qty = Decimal(p_el.get("Q", "0")) / 1000
-            unit_price = Decimal(p_el.get("PRC", "0")) / 100
             item_total = Decimal(p_el.get("SM", "0")) / 100
+            # Some POS systems (METRO) store Q=0 and PRC=0 for single-unit items,
+            # recording only the line total. Treat as qty=1, unit_price=total.
+            if qty == 0 and item_total > 0:
+                qty = Decimal("1")
+            raw_price = Decimal(p_el.get("PRC", "0")) / 100
+            unit_price = raw_price if raw_price > 0 else item_total
             receipt.items.append(Item(
                 code=p_el.get("C", ""),
                 barcode=p_el.get("CD", ""),
