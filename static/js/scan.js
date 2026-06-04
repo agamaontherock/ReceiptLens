@@ -145,25 +145,59 @@
     scanBtn.addEventListener("click", scanCurrentFile);
   }
 
-  // --- Clipboard paste (Ctrl+V / Cmd+V) ---
+  // --- Clipboard paste: button (uses Clipboard API) + keyboard Ctrl+V ---
+  async function handleClipboardImage(file) {
+    const fileTabEl = document.getElementById("file-tab");
+    if (fileTabEl) bootstrap.Tab.getOrCreateInstance(fileTabEl).show();
+    currentFile = file;
+    showFilePreview(file);
+    scanCurrentFile();
+  }
+
+  const pasteBtn = document.getElementById("paste-btn");
+  const pasteError = document.getElementById("paste-error");
+
+  if (pasteBtn) {
+    pasteBtn.addEventListener("click", async () => {
+      if (!navigator.clipboard?.read) {
+        if (pasteError) {
+          pasteError.textContent = "Буфер обміну недоступний. Натисніть на сторінку та спробуйте Ctrl+V.";
+          pasteError.classList.remove("d-none");
+        }
+        return;
+      }
+      try {
+        const items = await navigator.clipboard.read();
+        let found = false;
+        for (const item of items) {
+          const imageType = item.types.find(t => t.startsWith("image/"));
+          if (!imageType) continue;
+          const blob = await item.getType(imageType);
+          await handleClipboardImage(blob);
+          found = true;
+          if (pasteError) pasteError.classList.add("d-none");
+          break;
+        }
+        if (!found && pasteError) {
+          pasteError.textContent = "У буфері обміну немає зображення.";
+          pasteError.classList.remove("d-none");
+        }
+      } catch {
+        if (pasteError) {
+          pasteError.textContent = "Доступ до буфера обміну заборонено. Спробуйте Ctrl+V або завантажте файл.";
+          pasteError.classList.remove("d-none");
+        }
+      }
+    });
+  }
+
   document.addEventListener("paste", e => {
     const items = e.clipboardData?.items;
     if (!items) return;
-
     for (const item of items) {
       if (!item.type.startsWith("image/")) continue;
-
       const file = item.getAsFile();
-      if (!file) continue;
-
-      // Switch to the Фото tab so the user sees the preview
-      const fileTabEl = document.getElementById("file-tab");
-      if (fileTabEl) bootstrap.Tab.getOrCreateInstance(fileTabEl).show();
-
-      currentFile = file;
-      showFilePreview(file);
-      scanCurrentFile();
-      break;
+      if (file) { handleClipboardImage(file); break; }
     }
   });
 })();

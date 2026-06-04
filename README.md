@@ -152,8 +152,7 @@ static/
 ## Production deployment
 
 ```bash
-python manage.py collectstatic --no-input
-gunicorn receiptlens.wsgi:application --bind 0.0.0.0:$PORT
+python manage.py collectstatic --no-input && python manage.py migrate && python manage.py seed_categories && gunicorn receiptlens.wsgi:application --bind 0.0.0.0:$PORT
 ```
 
 Set `DEBUG=False`, a strong `SECRET_KEY`, `DATABASE_URL`, and `ALLOWED_HOSTS` in the environment. HTTPS is required in production for camera access.

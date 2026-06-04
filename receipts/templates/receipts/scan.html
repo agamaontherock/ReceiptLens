@@ -39,7 +39,13 @@
       <div class="card-body">
         <label for="qr-file" class="form-label">Виберіть фото з QR-кодом</label>
         <input type="file" class="form-control" id="qr-file" accept="image/*">
-        <div class="form-text">або натисніть <kbd>Ctrl+V</kbd> щоб вставити зображення з буфера обміну</div>
+        <div class="mt-2 d-flex align-items-center gap-2">
+          <button type="button" id="paste-btn" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-clipboard-image"></i> Вставити з буфера
+          </button>
+          <span class="text-muted small">або <kbd>Ctrl+V</kbd> коли сторінка активна</span>
+        </div>
+        <div id="paste-error" class="alert alert-warning mt-2 d-none"></div>
         <div id="file-preview" class="mt-3 d-none">
           <img id="preview-img" class="img-fluid rounded mb-2" style="max-height:300px" alt="">
           <div>

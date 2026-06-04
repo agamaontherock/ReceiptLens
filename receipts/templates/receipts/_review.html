@@ -40,7 +40,8 @@
           </thead>
           <tbody>
             {% for it in items %}
-            <tr x-data="{ qty: {{ it.qty|unlocalize }}, price: {{ it.unit_price|unlocalize }} }">
+            <tr x-data="{ qty: {{ it.qty|unlocalize }}, price: {{ it.unit_price|unlocalize }} }"
+                {% if not it.suggested_category_id %}class="table-warning"{% endif %}>
               <input type="hidden" name="barcode_{{ forloop.counter0 }}" value="{{ it.barcode }}">
               <input type="hidden" name="code_{{ forloop.counter0 }}" value="{{ it.code }}">
               <td>
@@ -68,7 +69,8 @@
                 <input type="hidden" :name="'total_{{ forloop.counter0 }}'" :value="(qty * price).toFixed(2)">
               </td>
               <td>
-                <select name="category_id_{{ forloop.counter0 }}" class="form-select form-select-sm">
+                <select name="category_id_{{ forloop.counter0 }}"
+                        class="form-select form-select-sm{% if not it.suggested_category_id %} border-warning{% endif %}">
                   <option value="">— без категорії —</option>
                   {% for cat in categories %}
                     <option value="{{ cat.pk }}"

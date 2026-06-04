@@ -1,67 +1,73 @@
+from pathlib import Path
+import yaml
 from django.core.management.base import BaseCommand
 from receipts.models import Category, CategoryRule
 
+SEEDS_DIR = Path(__file__).resolve().parents[2] / "seeds"
+
 CATEGORIES = [
-    "Овочі",
-    "Фрукти",
-    "Молочне",
-    "М'ясо та ковбаси",
-    "Випічка та хліб",
-    "Бакалія",
-    "Снеки та солодощі",
-    "Напої",
-    "Побутове",
-    "Інше",
+    "Овочі", "Фрукти", "Молочне", "Сир", "М'ясо та ковбаси",
+    "Випічка та хліб", "Бакалія", "Снеки та солодощі", "Напої",
+    "Побутове", "Інше",
 ]
 
-SEEDS = [
-    # Молочне
-    ("молок", "Молочне"), ("сир", "Молочне"), ("масл", "Молочне"),
-    ("сметан", "Молочне"), ("кефір", "Молочне"), ("йогурт", "Молочне"),
-    ("вершк", "Молочне"), ("творог", "Молочне"),
-    # М'ясо та ковбаси
-    ("ковбас", "М'ясо та ковбаси"), ("сардел", "М'ясо та ковбаси"),
-    ("шинк", "М'ясо та ковбаси"), ("кабанос", "М'ясо та ковбаси"),
-    ("сосиск", "М'ясо та ковбаси"), ("м'яс", "М'ясо та ковбаси"),
-    # Випічка та хліб
-    ("хліб", "Випічка та хліб"), ("батон", "Випічка та хліб"),
-    ("булк", "Випічка та хліб"), ("завиван", "Випічка та хліб"),
-    # Овочі / Фрукти
-    ("картопл", "Овочі"), ("цибул", "Овочі"), ("морков", "Овочі"),
-    ("яблук", "Фрукти"), ("банан", "Фрукти"), ("апельсин", "Фрукти"),
-    # Снеки та солодощі
-    ("батончик", "Снеки та солодощі"), ("шоколад", "Снеки та солодощі"),
-    ("цукерк", "Снеки та солодощі"), ("чипс", "Снеки та солодощі"),
-    # Напої
-    ("вода", "Напої"), ("сік", "Напої"), ("напій", "Напої"),
-    # Бакалія
-    ("крупа", "Бакалія"), ("гречк", "Бакалія"), ("рис", "Бакалія"),
-    ("макарон", "Бакалія"), ("олія", "Бакалія"),
-]
 
 class Command(BaseCommand):
-    help = "Create default food categories (idempotent)"
+    help = "Create default categories and seed keyword rules from receipts/seeds/*.yaml"
 
     def handle(self, *args, **options):
+        # Categories
         cat_created = 0
         for name in CATEGORIES:
-            _, was_created = Category.objects.get_or_create(name=name)
-            if was_created:
+            _, created = Category.objects.get_or_create(name=name)
+            if created:
                 cat_created += 1
 
-        rules_created = 0
-        for keyword, cat_name in SEEDS:
-            cat = Category.objects.get(name=cat_name)
-            _, was_created = CategoryRule.objects.get_or_create(
-                key_type=CategoryRule.KEYWORD,
-                key_value=keyword.upper(),
-                defaults={"category": cat},
+        # Seed files
+        seed_files = sorted(SEEDS_DIR.glob("*.yaml"))
+        if not seed_files:
+            self.stdout.write(self.style.WARNING(f"No seed files found in {SEEDS_DIR}"))
+
+        total_created = total_skipped = 0
+        for path in seed_files:
+            created, skipped = self._load_file(path)
+            total_created += created
+            total_skipped += skipped
+            self.stdout.write(
+                f"  {path.name}: {created} rules created, {skipped} already existed"
             )
-            if was_created:
-                rules_created += 1
 
         self.stdout.write(self.style.SUCCESS(
-            f"Done. {cat_created} categories and {rules_created} keyword rules created "
-            f"({len(CATEGORIES) - cat_created} categories and "
-            f"{len(SEEDS) - rules_created} rules already existed)."
+            f"Done. {cat_created} new categories. "
+            f"{total_created} keyword rules created, {total_skipped} already existed "
+            f"across {len(seed_files)} file(s)."
         ))
+
+    def _load_file(self, path: Path) -> tuple[int, int]:
+        with open(path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        keywords: dict = data.get("keywords", {})
+        created = skipped = 0
+        for cat_name, keyword_list in keywords.items():
+            try:
+                cat = Category.objects.get(name=cat_name)
+            except Category.DoesNotExist:
+                self.stdout.write(self.style.WARNING(
+                    f"    Category {cat_name!r} not found — skipping {len(keyword_list)} rule(s)"
+                ))
+                continue
+            for keyword in keyword_list:
+                keyword = str(keyword).strip()
+                if not keyword:
+                    continue
+                _, was_created = CategoryRule.objects.get_or_create(
+                    key_type=CategoryRule.KEYWORD,
+                    key_value=keyword.upper(),
+                    defaults={"category": cat},
+                )
+                if was_created:
+                    created += 1
+                else:
+                    skipped += 1
+        return created, skipped
