@@ -120,6 +120,7 @@ def scan(request):
 def receipts_parse(request):
     qr_url = request.POST.get("qr_url", "").strip()
     xml_b64 = request.POST.get("check_xml_b64", "").strip()
+    source_qr_url = qr_url
     try:
         if xml_b64:
             data = {"checkXml": xml_b64}
@@ -159,6 +160,7 @@ def receipts_parse(request):
             "receipt": receipt, "store": store,
             "categories": categories, "items": items,
             "preview_chart": preview_chart,
+            "source_qr_url": source_qr_url,
         })
     except Exception as e:
         return render(request, "receipts/_review_error.html", {"error": str(e)})
@@ -178,6 +180,7 @@ def receipts_save(request):
     receipt_datetime_str = request.POST.get("receipt_datetime", "").strip()
     total_str = request.POST.get("receipt_total", "0").strip()
     source = request.POST.get("source", "qr").strip()
+    qr_url = request.POST.get("qr_url", "").strip()
     item_count = int(request.POST.get("item_count", 0))
 
     store, _ = Store.objects.update_or_create(
@@ -199,6 +202,7 @@ def receipts_save(request):
         datetime=receipt_dt,
         total=total_str or 0,
         source=source,
+        qr_url=qr_url,
     )
 
     for i in range(item_count):

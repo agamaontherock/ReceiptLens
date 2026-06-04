@@ -12,6 +12,7 @@
   <input type="hidden" name="receipt_datetime" value="{{ receipt.datetime }}">
   <input type="hidden" name="receipt_total" value="{{ receipt.total|unlocalize }}">
   <input type="hidden" name="legal_name" value="{{ receipt.org_legal_name }}">
+  <input type="hidden" name="qr_url" value="{{ source_qr_url }}">
 
   <div class="card mb-3">
     <div class="card-body">
