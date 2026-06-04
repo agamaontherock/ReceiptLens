@@ -3,7 +3,9 @@ from receipts.models import CategoryRule
 
 
 def normalize_name(name: str) -> str:
-    return " ".join(name.upper().split())
+    # Some POS systems (METRO) use Latin I (U+0049) where Ukrainian І (U+0406) is expected.
+    # Normalize to Ukrainian so keywords match regardless of source encoding.
+    return " ".join(name.upper().replace("I", "І").split())
 
 
 def suggest_category_id(*, barcode: str, name: str) -> int | None:
