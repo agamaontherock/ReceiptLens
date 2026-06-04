@@ -2,6 +2,7 @@ from pathlib import Path
 import yaml
 from django.core.management.base import BaseCommand
 from receipts.models import Category, CategoryRule
+from receipts.services.categorize import normalize_name
 
 SEEDS_DIR = Path(__file__).resolve().parents[2] / "seeds"
 
@@ -63,7 +64,7 @@ class Command(BaseCommand):
                     continue
                 _, was_created = CategoryRule.objects.get_or_create(
                     key_type=CategoryRule.KEYWORD,
-                    key_value=keyword.upper(),
+                    key_value=normalize_name(keyword),
                     defaults={"category": cat},
                 )
                 if was_created:

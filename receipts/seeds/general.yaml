@@ -12,6 +12,7 @@ keywords:
     - сметан    # сметана
     - кефір
     - йогурт
+    - actimel   # Danone probiotic yogurt drink
     - вершк     # вершки
     - творог
 
@@ -32,6 +33,8 @@ keywords:
     - булк      # булка
     - завиван   # завиванець
     - багет
+    - мафін
+    - піта
 
   Овочі:
     - картопл   # картопля
@@ -65,14 +68,17 @@ keywords:
     - груш      # груша
 
   Снеки та солодощі:
-    - батончик  # must come before батон (longer wins)
+    - bob snail  # children's snack brand (marmalade, candied fruit, gummies)
+    - батончик   # must come before батон (longer wins)
     - шоколад
-    - шок       # METRO/Silpo abbreviation of шоколад
-    - цукерк    # цукерки
+    - шок        # METRO/Silpo abbreviation of шоколад
+    - цукерк     # цукерки
+    - цукат      # цукати (candied fruit)
+    - мармелад
     - чипс
     - снек
     - печиво
-    - вафл      # вафлі
+    - вафл       # вафлі
 
   Напої:
     - вода
@@ -109,6 +115,7 @@ keywords:
     - оцет
     - соус
     - приправ   # приправа
+    - гірчиц    # гірчиця (mustard)
     - базилік
     - горіх
 
