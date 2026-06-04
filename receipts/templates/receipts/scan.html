@@ -26,7 +26,13 @@
 
 <div class="tab-content mb-3">
   <div class="tab-pane fade show active" id="camera-pane" role="tabpanel">
-    <div id="reader" class="border rounded" style="max-width:500px"></div>
+    <div id="camera-start" class="border rounded d-flex flex-column align-items-center justify-content-center gap-2 bg-light text-muted"
+         style="max-width:500px; height:220px; cursor:pointer"
+         onclick="startCamera()">
+      <i class="bi bi-camera-video fs-1"></i>
+      <span>Натисніть щоб увімкнути камеру</span>
+    </div>
+    <div id="reader" class="border rounded d-none" style="max-width:500px"></div>
   </div>
   <div class="tab-pane fade" id="file-pane" role="tabpanel">
     <div class="card" style="max-width:500px">

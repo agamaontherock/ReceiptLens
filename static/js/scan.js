@@ -30,32 +30,49 @@
 
   // --- Camera tab ---
   const qr = new Html5Qrcode("reader");
+  const cameraStart = document.getElementById("camera-start");
+  const readerEl = document.getElementById("reader");
 
-  Html5Qrcode.getCameras().then(cameras => {
-    if (!cameras || cameras.length === 0) return;
-    const camId = cameras[cameras.length - 1].id;
-    qr.start(
-      camId,
-      { fps: 10, qrbox: { width: 280, height: 280 } },
-      decoded => { qr.stop().catch(() => {}); submitDecoded(decoded); },
-      () => {}
-    ).catch(err => console.warn("QR camera error:", err));
-  }).catch(() => {});
+  window.startCamera = function () {
+    Html5Qrcode.getCameras().then(cameras => {
+      if (!cameras || cameras.length === 0) {
+        if (cameraStart) cameraStart.innerHTML =
+          '<i class="bi bi-camera-video-off fs-1"></i><span>Камера недоступна</span>';
+        return;
+      }
+      if (cameraStart) cameraStart.classList.add("d-none");
+      if (readerEl) readerEl.classList.remove("d-none");
+      const camId = cameras[cameras.length - 1].id;
+      qr.start(
+        camId,
+        { fps: 10, qrbox: { width: 280, height: 280 } },
+        decoded => { qr.stop().catch(() => {}); submitDecoded(decoded); },
+        () => {}
+      ).catch(err => {
+        if (readerEl) readerEl.classList.add("d-none");
+        if (cameraStart) {
+          cameraStart.classList.remove("d-none");
+          cameraStart.innerHTML =
+            '<i class="bi bi-camera-video-off fs-1"></i><span>Не вдалось увімкнути камеру</span>';
+        }
+        console.warn("QR camera error:", err);
+      });
+    }).catch(() => {});
+  };
 
-  // Stop/restart camera on tab switch
+  // Stop camera when switching to Фото tab; reset placeholder when coming back
   document.getElementById("file-tab")?.addEventListener("shown.bs.tab", () => {
     if (qr._isScanning) qr.stop().catch(() => {});
   });
   document.getElementById("camera-tab")?.addEventListener("shown.bs.tab", () => {
     if (qr._isScanning) return;
-    Html5Qrcode.getCameras().then(cameras => {
-      if (!cameras || cameras.length === 0) return;
-      const camId = cameras[cameras.length - 1].id;
-      qr.start(camId, { fps: 10, qrbox: { width: 280, height: 280 } },
-        decoded => { qr.stop().catch(() => {}); submitDecoded(decoded); },
-        () => {}
-      ).catch(() => {});
-    }).catch(() => {});
+    // Restore the placeholder — user must click again to restart
+    if (readerEl) readerEl.classList.add("d-none");
+    if (cameraStart) {
+      cameraStart.classList.remove("d-none");
+      cameraStart.innerHTML =
+        '<i class="bi bi-camera-video fs-1"></i><span>Натисніть щоб увімкнути камеру</span>';
+    }
   });
 
   // --- File tab ---
