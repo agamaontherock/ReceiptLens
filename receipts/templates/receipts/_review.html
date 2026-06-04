@@ -90,8 +90,13 @@
 
   <div class="d-flex justify-content-between align-items-center">
     <span class="text-muted">Разом: <strong>{{ receipt.total }} ₴</strong></span>
-    <button type="submit" class="btn btn-success">
-      <i class="bi bi-check-circle"></i> Зберегти чек
-    </button>
+    <div class="d-flex gap-2">
+      <a href="{% url 'scan' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-x-circle"></i> Скасувати
+      </a>
+      <button type="submit" class="btn btn-success">
+        <i class="bi bi-check-circle"></i> Зберегти чек
+      </button>
+    </div>
   </div>
 </form>

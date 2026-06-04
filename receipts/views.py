@@ -10,7 +10,7 @@ import json
 from .models import Store, Category, Receipt, Item, CategoryRule
 from .services.dps import parse_qr_url, fetch_check
 from .services.tax_check import parse_chk_response
-from .services.categorize import suggest_category_id, learn_rule
+from .services.categorize import suggest_category_id
 
 
 def dashboard(request):
@@ -133,9 +133,6 @@ def receipts_save(request):
             total=total,
             category_id=category_id,
         )
-
-        if category_id:
-            learn_rule(barcode=barcode, name=name, category_id=category_id)
 
     return redirect("receipt_detail", pk=receipt.pk)
 
