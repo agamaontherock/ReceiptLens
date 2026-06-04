@@ -1,4 +1,8 @@
 {% load l10n %}
+
+{% if request.user.is_authenticated %}
+
+{# ── Registered: editable form ── #}
 <form method="post" action="{% url 'receipts_save' %}">
   {% csrf_token %}
   <input type="hidden" name="item_count" value="{{ items|length }}">
@@ -44,26 +48,15 @@
                 {% if not it.suggested_category_id %}class="table-warning"{% endif %}>
               <input type="hidden" name="barcode_{{ forloop.counter0 }}" value="{{ it.barcode }}">
               <input type="hidden" name="code_{{ forloop.counter0 }}" value="{{ it.code }}">
-              <td>
-                <input type="text" name="name_{{ forloop.counter0 }}"
-                       class="form-control form-control-sm" value="{{ it.name }}">
-              </td>
-              <td>
-                <input type="number" step="0.001" name="qty_{{ forloop.counter0 }}"
-                       class="form-control form-control-sm"
-                       x-model.number="qty" value="{{ it.qty|unlocalize }}">
-              </td>
+              <td><input type="text" name="name_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ it.name }}"></td>
+              <td><input type="number" step="0.001" name="qty_{{ forloop.counter0 }}" class="form-control form-control-sm" x-model.number="qty" value="{{ it.qty|unlocalize }}"></td>
               <td>
                 <select name="unit_{{ forloop.counter0 }}" class="form-select form-select-sm">
                   <option value="pcs" {% if it.unit == "pcs" %}selected{% endif %}>шт</option>
                   <option value="kg" {% if it.unit == "kg" %}selected{% endif %}>кг</option>
                 </select>
               </td>
-              <td>
-                <input type="number" step="0.01" name="price_{{ forloop.counter0 }}"
-                       class="form-control form-control-sm"
-                       x-model.number="price" value="{{ it.unit_price|unlocalize }}">
-              </td>
+              <td><input type="number" step="0.01" name="price_{{ forloop.counter0 }}" class="form-control form-control-sm" x-model.number="price" value="{{ it.unit_price|unlocalize }}"></td>
               <td>
                 <span x-text="(qty * price).toFixed(2)" class="fw-semibold"></span>
                 <input type="hidden" :name="'total_{{ forloop.counter0 }}'" :value="(qty * price).toFixed(2)">
@@ -73,10 +66,7 @@
                         class="form-select form-select-sm{% if not it.suggested_category_id %} border-warning{% endif %}">
                   <option value="">— без категорії —</option>
                   {% for cat in categories %}
-                    <option value="{{ cat.pk }}"
-                      {% if cat.pk == it.suggested_category_id %}selected{% endif %}>
-                      {{ cat.name }}
-                    </option>
+                    <option value="{{ cat.pk }}" {% if cat.pk == it.suggested_category_id %}selected{% endif %}>{{ cat.name }}</option>
                   {% endfor %}
                 </select>
               </td>
@@ -100,3 +90,101 @@
     </div>
   </div>
 </form>
+
+{% else %}
+
+{# ── Guest: two-tab preview ── #}
+<div class="card mb-3">
+  <div class="card-body pb-0">
+    <p class="mb-1 text-muted small">{{ receipt.org_legal_name }} · {{ receipt.datetime }} · {{ receipt.total }} ₴</p>
+  </div>
+  <ul class="nav nav-tabs px-3 pt-2" id="guestTabs">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-receipt">
+        <i class="bi bi-list-ul"></i> Чек
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-stats">
+        <i class="bi bi-pie-chart"></i> Статистика
+      </button>
+    </li>
+  </ul>
+  <div class="tab-content">
+
+    <div class="tab-pane fade show active p-0" id="tab-receipt">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Назва</th>
+              <th style="width:80px">К-сть</th>
+              <th style="width:90px">Ціна</th>
+              <th style="width:90px">Сума</th>
+              <th style="width:140px">Категорія</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for it in items %}
+            <tr>
+              <td>{{ it.name }}</td>
+              <td>{{ it.qty }} {{ it.unit }}</td>
+              <td>{{ it.unit_price }} ₴</td>
+              <td>{{ it.total }} ₴</td>
+              <td>
+                {% if it.suggested_category_id %}
+                  {% for cat in categories %}{% if cat.pk == it.suggested_category_id %}<span class="badge bg-info text-dark">{{ cat.name }}</span>{% endif %}{% endfor %}
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="table-active fw-bold">
+              <td colspan="3">Разом</td>
+              <td colspan="2">{{ receipt.total }} ₴</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-pane fade p-3" id="tab-stats">
+      <div style="max-width:340px;margin:0 auto">
+        <canvas id="previewChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center">
+  <a href="{% url 'scan' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Назад
+  </a>
+  <a href="{% url 'register' %}" class="btn btn-primary">
+    <i class="bi bi-person-plus"></i> Зареєструватись щоб зберегти
+  </a>
+</div>
+
+<script>
+(function() {
+  const d = {{ preview_chart|safe }};
+  if (!d.labels.length) return;
+  const PALETTE = ['#0d6efd','#6610f2','#d63384','#dc3545','#fd7e14',
+                   '#ffc107','#198754','#20c997','#0dcaf0','#6f42c1','#adb5bd'];
+  document.querySelector('[data-bs-target="#tab-stats"]').addEventListener('shown.bs.tab', function() {
+    if (window._previewChartDone) return;
+    window._previewChartDone = true;
+    new Chart(document.getElementById('previewChart'), {
+      type: 'doughnut',
+      data: { labels: d.labels, datasets: [{ data: d.values, backgroundColor: PALETTE, borderWidth: 1 }] },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  });
+})();
+</script>
+
+{% endif %}

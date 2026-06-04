@@ -14,7 +14,7 @@
 <body>
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-3">
     <div class="container">
-      <a class="navbar-brand fw-bold" href="/">
+      <a class="navbar-brand fw-bold" href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'scan' %}{% endif %}">
         <i class="bi bi-receipt"></i> ReceiptLens
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
@@ -23,8 +23,36 @@
       <div class="collapse navbar-collapse" id="nav">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item"><a class="nav-link" href="{% url 'scan' %}"><i class="bi bi-qr-code-scan"></i> Сканувати</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'manual' %}"><i class="bi bi-pencil-square"></i> Вручну</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'analytics' %}"><i class="bi bi-bar-chart-line"></i> Аналітика</a></li>
+          {% if user.is_authenticated %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'manual' %}"><i class="bi bi-pencil-square"></i> Вручну</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'analytics' %}"><i class="bi bi-bar-chart-line"></i> Аналітика</a></li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                {% if user.profile.avatar %}
+                  <img src="{{ user.profile.avatar.url }}" class="rounded-circle me-1"
+                       style="width:24px;height:24px;object-fit:cover" alt="">
+                {% else %}
+                  <i class="bi bi-person-circle"></i>
+                {% endif %}
+                {{ user.profile.display_name }}
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-gear"></i> Профіль</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <form method="post" action="{% url 'logout' %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="dropdown-item text-danger">
+                      <i class="bi bi-box-arrow-right"></i> Вийти
+                    </button>
+                  </form>
+                </li>
+              </ul>
+            </li>
+          {% else %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'login' %}"><i class="bi bi-box-arrow-in-right"></i> Увійти</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'register' %}"><i class="bi bi-person-plus"></i> Реєстрація</a></li>
+          {% endif %}
         </ul>
       </div>
     </div>

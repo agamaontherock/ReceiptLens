@@ -21,6 +21,13 @@
         body: new URLSearchParams({ qr_url: url, csrfmiddlewaretoken: csrf.value }),
       });
       container.innerHTML = await resp.text();
+      // Scripts injected via innerHTML are inert — clone and re-insert to execute them.
+      container.querySelectorAll("script").forEach(old => {
+        const s = document.createElement("script");
+        [...old.attributes].forEach(a => s.setAttribute(a.name, a.value));
+        s.textContent = old.textContent;
+        old.replaceWith(s);
+      });
       if (typeof htmx !== "undefined") htmx.process(container);
     } catch {
       container.innerHTML =

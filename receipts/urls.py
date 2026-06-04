@@ -10,4 +10,8 @@ urlpatterns = [
     path("receipts/<int:pk>/delete/", views.receipt_delete, name="receipt_delete"),
     path("manual/", views.manual, name="manual"),
     path("analytics/", views.analytics, name="analytics"),
+    path("profile/", views.profile, name="profile"),
+    path("auth/register/", views.register, name="register"),
+    path("auth/login/", views.login_view, name="login"),
+    path("auth/logout/", views.logout_view, name="logout"),
 ]

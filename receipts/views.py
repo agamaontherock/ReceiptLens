@@ -1,37 +1,105 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.db import transaction
-from django.utils.dateparse import parse_datetime
-from django.db.models import Sum
-from django.db.models.functions import TruncMonth
-from django.utils import timezone
 import datetime
 import json
+from collections import defaultdict
+from decimal import Decimal
 
-from .models import Store, Category, Receipt, Item, CategoryRule
+from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout, get_user_model
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.db.models import Sum
+from django.db.models.functions import TruncMonth
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+
+from .forms import RegisterForm, LoginForm, ProfileForm
+from .models import Store, Category, Receipt, Item, UserProfile
+from .services.categorize import suggest_category_id
 from .services.dps import parse_qr_url, fetch_check
 from .services.tax_check import parse_chk_response
-from .services.categorize import suggest_category_id
 
+User = get_user_model()
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+def register(request):
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+    form = RegisterForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        user = form.save()
+        login(request, user, backend="receipts.backends.EmailBackend")
+        messages.success(request, "Ласкаво просимо!")
+        return redirect("dashboard")
+    return render(request, "receipts/auth/register.html", {"form": form})
+
+
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+    form = LoginForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        user = authenticate(
+            request,
+            username=form.cleaned_data["email"],
+            password=form.cleaned_data["password"],
+        )
+        if user:
+            login(request, user)
+            return redirect(request.GET.get("next") or "dashboard")
+        form.add_error(None, "Невірний email або пароль.")
+    return render(request, "receipts/auth/login.html", {"form": form})
+
+
+def logout_view(request):
+    logout(request)
+    return redirect("login")
+
+
+@login_required
+def profile(request):
+    user_profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    form = ProfileForm(request.POST or None, request.FILES or None, instance=user_profile)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Профіль оновлено.")
+        return redirect("profile")
+    return render(request, "receipts/profile.html", {"form": form, "user_profile": user_profile})
+
+
+# ---------------------------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------------------------
 
 def dashboard(request):
-    recent = Receipt.objects.select_related("store").order_by("-datetime")[:10]
+    if not request.user.is_authenticated:
+        return redirect("scan")
+    recent = (Receipt.objects
+              .filter(user=request.user)
+              .select_related("store")
+              .order_by("-datetime")[:10])
+
     now = timezone.now()
     this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     last_month_end = this_month_start - datetime.timedelta(seconds=1)
     last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    this_month_total = Receipt.objects.filter(datetime__gte=this_month_start).aggregate(
-        total=Sum("total"))["total"] or 0
-    last_month_total = Receipt.objects.filter(
-        datetime__gte=last_month_start, datetime__lte=last_month_end
-    ).aggregate(total=Sum("total"))["total"] or 0
+    base = Receipt.objects.filter(user=request.user)
+    this_month_total = (base.filter(datetime__gte=this_month_start)
+                        .aggregate(total=Sum("total"))["total"] or 0)
+    last_month_total = (base.filter(datetime__gte=last_month_start, datetime__lte=last_month_end)
+                        .aggregate(total=Sum("total"))["total"] or 0)
 
     top_categories = (Item.objects
-        .filter(receipt__datetime__gte=this_month_start)
-        .exclude(category=None)
-        .values("category__name")
-        .annotate(total=Sum("total"))
-        .order_by("-total")[:3])
+                      .filter(receipt__user=request.user, receipt__datetime__gte=this_month_start)
+                      .exclude(category=None)
+                      .values("category__name")
+                      .annotate(total=Sum("total"))
+                      .order_by("-total")[:3])
 
     return render(request, "receipts/dashboard.html", {
         "recent": recent,
@@ -40,6 +108,10 @@ def dashboard(request):
         "top_categories": top_categories,
     })
 
+
+# ---------------------------------------------------------------------------
+# Scan / parse / save
+# ---------------------------------------------------------------------------
 
 def scan(request):
     return render(request, "receipts/scan.html")
@@ -60,20 +132,39 @@ def receipts_parse(request):
         receipt = parse_chk_response(data)
         store = Store.objects.filter(fiscal_rro=receipt.fiscal_rro).first()
         categories = Category.objects.order_by("name")
-        items = [{
-            "code": it.code, "barcode": it.barcode, "name": it.name,
-            "qty": str(it.qty), "unit": it.unit,
-            "unit_price": str(it.unit_price), "total": str(it.total),
-            "suggested_category_id": suggest_category_id(barcode=it.barcode, name=it.name) or "",
-        } for it in receipt.items]
+
+        items = []
+        cat_totals: dict[str, float] = defaultdict(float)
+
+        for it in receipt.items:
+            cat_id = suggest_category_id(barcode=it.barcode, name=it.name) or ""
+            items.append({
+                "code": it.code, "barcode": it.barcode, "name": it.name,
+                "qty": str(it.qty), "unit": it.unit,
+                "unit_price": str(it.unit_price), "total": str(it.total),
+                "suggested_category_id": cat_id,
+            })
+            if cat_id:
+                cat_name = next((c.name for c in categories if c.pk == cat_id), "Інше")
+                cat_totals[cat_name] += float(it.total)
+            else:
+                cat_totals["Без категорії"] += float(it.total)
+
+        preview_chart = json.dumps({
+            "labels": list(cat_totals.keys()),
+            "values": [round(v, 2) for v in cat_totals.values()],
+        })
+
         return render(request, "receipts/_review.html", {
             "receipt": receipt, "store": store,
             "categories": categories, "items": items,
+            "preview_chart": preview_chart,
         })
     except Exception as e:
         return render(request, "receipts/_review_error.html", {"error": str(e)})
 
 
+@login_required
 @transaction.atomic
 def receipts_save(request):
     if request.method != "POST":
@@ -101,6 +192,7 @@ def receipts_save(request):
         receipt_dt = timezone.make_aware(receipt_dt)
 
     receipt = Receipt.objects.create(
+        user=request.user,
         store=store,
         check_id=check_id,
         fn=fn,
@@ -123,34 +215,34 @@ def receipts_save(request):
         category_id = int(category_id_str) if category_id_str else None
 
         Item.objects.create(
-            receipt=receipt,
-            code=code,
-            barcode=barcode,
-            name=name,
-            qty=qty,
-            unit=unit,
-            unit_price=unit_price,
-            total=total,
-            category_id=category_id,
+            receipt=receipt, code=code, barcode=barcode,
+            name=name, qty=qty, unit=unit,
+            unit_price=unit_price, total=total, category_id=category_id,
         )
 
     return redirect("receipt_detail", pk=receipt.pk)
 
 
+@login_required
+def receipt_detail(request, pk):
+    receipt = get_object_or_404(
+        Receipt.objects.select_related("store"),
+        pk=pk, user=request.user,
+    )
+    items = receipt.items.select_related("category").all()
+    return render(request, "receipts/receipt_detail.html", {"receipt": receipt, "items": items})
+
+
+@login_required
 def receipt_delete(request, pk):
-    receipt = get_object_or_404(Receipt, pk=pk)
+    receipt = get_object_or_404(Receipt, pk=pk, user=request.user)
     if request.method == "POST":
         receipt.delete()
         return redirect("dashboard")
     return redirect("receipt_detail", pk=pk)
 
 
-def receipt_detail(request, pk):
-    receipt = get_object_or_404(Receipt.objects.select_related("store"), pk=pk)
-    items = receipt.items.select_related("category").all()
-    return render(request, "receipts/receipt_detail.html", {"receipt": receipt, "items": items})
-
-
+@login_required
 def manual(request):
     categories = Category.objects.order_by("name")
     return render(request, "receipts/manual.html", {
@@ -159,6 +251,11 @@ def manual(request):
     })
 
 
+# ---------------------------------------------------------------------------
+# Analytics
+# ---------------------------------------------------------------------------
+
+@login_required
 def analytics(request):
     today = timezone.now().date()
     from_date_str = request.GET.get("from_date", today.replace(day=1).isoformat())
@@ -172,10 +269,12 @@ def analytics(request):
         to_date = today
 
     base_items = Item.objects.filter(
+        receipt__user=request.user,
         receipt__datetime__date__gte=from_date,
         receipt__datetime__date__lte=to_date,
     )
     base_receipts = Receipt.objects.filter(
+        user=request.user,
         datetime__date__gte=from_date,
         datetime__date__lte=to_date,
     )
@@ -186,14 +285,12 @@ def analytics(request):
         .annotate(total=Sum("total"))
         .order_by("-total")
     )
-
     by_store = list(
         base_receipts
         .values("store__display_name", "store__legal_name")
         .annotate(total=Sum("total"))
         .order_by("-total")
     )
-
     by_month = list(
         base_receipts
         .annotate(month=TruncMonth("datetime"))
@@ -205,17 +302,19 @@ def analytics(request):
     def store_label(row):
         return row["store__display_name"] or row["store__legal_name"] or "Unknown"
 
-    cat_data = {"labels": [r["category__name"] for r in by_category],
-                "values": [float(r["total"]) for r in by_category]}
-    store_data = {"labels": [store_label(r) for r in by_store],
-                  "values": [float(r["total"]) for r in by_store]}
-    month_data = {"labels": [r["month"].strftime("%Y-%m") if r["month"] else "" for r in by_month],
-                  "values": [float(r["total"]) for r in by_month]}
-
     return render(request, "receipts/analytics.html", {
         "from_date": from_date_str,
         "to_date": to_date_str,
-        "cat_data": json.dumps(cat_data),
-        "store_data": json.dumps(store_data),
-        "month_data": json.dumps(month_data),
+        "cat_data": json.dumps({
+            "labels": [r["category__name"] for r in by_category],
+            "values": [float(r["total"]) for r in by_category],
+        }),
+        "store_data": json.dumps({
+            "labels": [store_label(r) for r in by_store],
+            "values": [float(r["total"]) for r in by_store],
+        }),
+        "month_data": json.dumps({
+            "labels": [r["month"].strftime("%Y-%m") if r["month"] else "" for r in by_month],
+            "values": [float(r["total"]) for r in by_month],
+        }),
     })

@@ -1,4 +1,29 @@
+from django.conf import settings
 from django.db import models
+
+
+class UserProfile(models.Model):
+    COUNTRY_CHOICES = [
+        ("UA", "Україна"),
+        ("PL", "Польща"),
+        ("DE", "Німеччина"),
+        ("GB", "Велика Британія"),
+        ("US", "США"),
+        ("OTHER", "Інша"),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
+    )
+    nickname = models.CharField(max_length=64, blank=True)
+    country = models.CharField(max_length=8, choices=COUNTRY_CHOICES, blank=True)
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+
+    def __str__(self):
+        return self.nickname or self.user.email
+
+    def display_name(self):
+        return self.nickname or self.user.email.split("@")[0]
 
 
 class Store(models.Model):
@@ -21,6 +46,10 @@ class Category(models.Model):
 
 
 class Receipt(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="receipts", null=True, blank=True,
+    )
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="receipts")
     check_id = models.CharField(max_length=64, blank=True)
     fn = models.CharField(max_length=32, blank=True)
