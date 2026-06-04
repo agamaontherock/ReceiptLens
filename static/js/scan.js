@@ -75,6 +75,12 @@
     if (scanBtn) scanBtn.disabled = active;
   }
 
+  function showFilePreview(file) {
+    if (previewImg) previewImg.src = URL.createObjectURL(file);
+    if (previewWrap) previewWrap.classList.remove("d-none");
+    if (fileError) fileError.classList.add("d-none");
+  }
+
   function decodeFileWithJsQR(file) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -82,9 +88,8 @@
         const canvas = document.createElement("canvas");
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        canvas.getContext("2d").drawImage(img, 0, 0);
+        const imageData = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
         const result = jsQR(imageData.data, imageData.width, imageData.height);
         if (result) resolve(result.data);
         else reject(new Error("QR not found"));
@@ -114,13 +119,7 @@
     fileInput.addEventListener("change", () => {
       currentFile = fileInput.files && fileInput.files[0];
       if (!currentFile) return;
-
-      // Show preview
-      if (previewImg) previewImg.src = URL.createObjectURL(currentFile);
-      if (previewWrap) previewWrap.classList.remove("d-none");
-      if (fileError) fileError.classList.add("d-none");
-
-      // Auto-scan immediately
+      showFilePreview(currentFile);
       scanCurrentFile();
     });
   }
@@ -128,4 +127,26 @@
   if (scanBtn) {
     scanBtn.addEventListener("click", scanCurrentFile);
   }
+
+  // --- Clipboard paste (Ctrl+V / Cmd+V) ---
+  document.addEventListener("paste", e => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (!item.type.startsWith("image/")) continue;
+
+      const file = item.getAsFile();
+      if (!file) continue;
+
+      // Switch to the Фото tab so the user sees the preview
+      const fileTabEl = document.getElementById("file-tab");
+      if (fileTabEl) bootstrap.Tab.getOrCreateInstance(fileTabEl).show();
+
+      currentFile = file;
+      showFilePreview(file);
+      scanCurrentFile();
+      break;
+    }
+  });
 })();
