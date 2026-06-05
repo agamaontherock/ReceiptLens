@@ -20,7 +20,8 @@ def _bootstrap(form):
 
 
 class RegisterForm(forms.Form):
-    email = forms.EmailField(label="Email")
+    username = forms.CharField(label="Ім'я користувача", max_length=150)
+    email = forms.EmailField(label="Email (необов'язково)", required=False)
     nickname = forms.CharField(label="Нікнейм", max_length=64, required=False)
     password1 = forms.CharField(label="Пароль", widget=forms.PasswordInput)
     password2 = forms.CharField(label="Повторіть пароль", widget=forms.PasswordInput)
@@ -28,10 +29,17 @@ class RegisterForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _bootstrap(self)
+        self.fields["username"].widget.attrs["autocomplete"] = "username"
+
+    def clean_username(self):
+        username = self.cleaned_data["username"].strip()
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError("Це ім'я вже зайнято.")
+        return username
 
     def clean_email(self):
-        email = self.cleaned_data["email"].strip().lower()
-        if User.objects.filter(email__iexact=email).exists():
+        email = self.cleaned_data.get("email", "").strip().lower()
+        if email and User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("Цей email вже зареєстрований.")
         return email
 
@@ -45,9 +53,10 @@ class RegisterForm(forms.Form):
         return cleaned
 
     def save(self):
-        email = self.cleaned_data["email"]
+        username = self.cleaned_data["username"]
+        email = self.cleaned_data.get("email", "")
         user = User.objects.create_user(
-            username=email,
+            username=username,
             email=email,
             password=self.cleaned_data["password1"],
         )
@@ -58,16 +67,17 @@ class RegisterForm(forms.Form):
 
 
 class LoginForm(forms.Form):
-    email = forms.EmailField(label="Email")
+    username = forms.CharField(label="Ім'я користувача або email")
     password = forms.CharField(label="Пароль", widget=forms.PasswordInput)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _bootstrap(self)
+        self.fields["username"].widget.attrs["autocomplete"] = "username"
 
 
 class ProfileForm(forms.ModelForm):
-    email = forms.EmailField(label="Email")
+    email = forms.EmailField(label="Email", required=False)
 
     class Meta:
         model = UserProfile
@@ -87,11 +97,9 @@ class ProfileForm(forms.ModelForm):
     def save(self, commit=True):
         profile = super().save(commit=False)
         email = self.cleaned_data.get("email", "").strip().lower()
-        if email:
-            user = profile.user
-            user.email = email
-            user.username = email
-            user.save(update_fields=["email", "username"])
+        user = profile.user
+        user.email = email
+        user.save(update_fields=["email"])
         if commit:
             profile.save()
         return profile

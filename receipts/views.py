@@ -33,7 +33,7 @@ def register(request):
     form = RegisterForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save()
-        login(request, user, backend="receipts.backends.EmailBackend")
+        login(request, user, backend="receipts.backends.UsernameOrEmailBackend")
         messages.success(request, "Ласкаво просимо!")
         return redirect("dashboard")
     return render(request, "receipts/auth/register.html", {"form": form})
@@ -46,7 +46,7 @@ def login_view(request):
     if request.method == "POST" and form.is_valid():
         user = authenticate(
             request,
-            username=form.cleaned_data["email"],
+            username=form.cleaned_data["username"],
             password=form.cleaned_data["password"],
         )
         if user:

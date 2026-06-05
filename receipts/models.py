@@ -23,7 +23,7 @@ class UserProfile(models.Model):
         return self.nickname or self.user.email
 
     def display_name(self):
-        return self.nickname or self.user.email.split("@")[0]
+        return self.nickname or self.user.username
 
 
 class Store(models.Model):
