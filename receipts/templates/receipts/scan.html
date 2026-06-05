@@ -1,4 +1,5 @@
 {% extends "receipts/base.html" %}
+{% load static %}
 {% block title %}Сканувати — ReceiptLens{% endblock %}
 
 {% block extra_head %}
@@ -8,6 +9,36 @@
 {% endblock %}
 
 {% block content %}
+
+{% if not user.is_authenticated %}
+<div class="row align-items-center mb-4 g-3">
+  <div class="col-md-6">
+    <h1 class="h3 fw-bold mb-2">Скануйте QR-код з чека</h1>
+    <p class="text-muted mb-3">
+      Наведіть камеру на QR-код фіскального чека — ReceiptLens автоматично
+      розпізнає товари, розподілить їх по категоріях і покаже аналітику витрат.
+    </p>
+    <div class="d-flex flex-wrap gap-2 mb-1">
+      <span class="badge text-bg-primary fs-6 fw-normal px-3 py-2">
+        <i class="bi bi-qr-code-scan me-1"></i> Сканування QR
+      </span>
+      <span class="badge text-bg-success fs-6 fw-normal px-3 py-2">
+        <i class="bi bi-tags me-1"></i> Авто-категорії
+      </span>
+      <span class="badge text-bg-info text-dark fs-6 fw-normal px-3 py-2">
+        <i class="bi bi-bar-chart-line me-1"></i> Аналітика
+      </span>
+    </div>
+  </div>
+  <div class="col-md-6 text-center">
+    <img src="{% static 'Gemini_Generated_Image_6s4xpb6s4xpb6s4x.png' %}"
+         alt="Сканування QR-коду чека телефоном"
+         class="img-fluid rounded-3 shadow-sm"
+         style="max-height:280px; object-fit:contain">
+  </div>
+</div>
+{% endif %}
+
 <h2 class="mb-3">Сканувати чек</h2>
 
 <ul class="nav nav-tabs mb-3" id="scanTabs" role="tablist">
