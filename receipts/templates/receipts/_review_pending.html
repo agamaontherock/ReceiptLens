@@ -1,0 +1,43 @@
+<div class="alert alert-warning d-flex gap-2 align-items-start">
+  <i class="bi bi-clock-history fs-5 mt-1 flex-shrink-0"></i>
+  <div>
+    <strong>Чек ще не доступний у базі ДПС</strong>
+    <div class="small mt-1 text-muted">{{ error }}</div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <p class="mb-2">
+      Після оплати чек може з'явитися у базі ДПС протягом <strong>до 24 годин</strong>.
+      Збережіть посилання — система автоматично повторить спробу через 2, 4, 8, 16 і 24 години.
+    </p>
+    <p class="mb-0 text-muted small text-break">
+      <i class="bi bi-link-45deg"></i> {{ qr_url }}
+    </p>
+  </div>
+</div>
+
+{% if request.user.is_authenticated %}
+<div class="d-flex gap-2">
+  <a href="{% url 'scan' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Назад
+  </a>
+  <form method="post" action="{% url 'pending_import_save' %}">
+    {% csrf_token %}
+    <input type="hidden" name="qr_url" value="{{ qr_url }}">
+    <button type="submit" class="btn btn-warning">
+      <i class="bi bi-clock"></i> Зберегти для повторної спроби
+    </button>
+  </form>
+</div>
+{% else %}
+<div class="d-flex gap-2 align-items-center">
+  <a href="{% url 'scan' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Назад
+  </a>
+  <a href="{% url 'register' %}" class="btn btn-primary">
+    <i class="bi bi-person-plus"></i> Зареєструватись, щоб зберегти для повторної спроби
+  </a>
+</div>
+{% endif %}

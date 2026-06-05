@@ -6,18 +6,36 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python manage.py collectstatic --no-input && python manage.py migrate && python manage.py seed_categories && gunicorn receiptlens.wsgi:application --bind 0.0.0.0:$PORT --workers 2
     envVars:
-      - key: SECRET_KEY
-        generateValue: true
+      # Shared vars (SECRET_KEY, DATABASE_URL) live in Environment Group
+      # "receiptlens-env" — create it in the Render dashboard first.
+      - fromGroup: receiptlens-env
       - key: DEBUG
         value: "False"
       - key: ALLOWED_HOSTS
         value: .onrender.com
-      # To switch to PostgreSQL: uncomment the two lines below and add a
-      # "databases:" section (see render.yaml docs), or paste a DATABASE_URL
-      # from an external provider (Supabase, Neon, etc.).
-      #- key: DATABASE_URL
-      #  value: postgresql://user:pass@host:5432/dbname
       - key: CSRF_TRUSTED_ORIGINS
         value: https://*.onrender.com
+      - key: PYTHON_VERSION
+        value: "3.13.5"
+
+  # Cron job: retries pending imports every hour.
+  # Free-tier eligible (~2 instance-hours/month, well under the 750h limit).
+  #
+  # Setup: create an Environment Group called "receiptlens-env" in the Render
+  # dashboard and add SECRET_KEY and DATABASE_URL there. Both the web service
+  # and this cron job then reference the same values.
+  - type: cron
+    name: receiptlens-retry-pending
+    runtime: python
+    plan: free
+    schedule: "0 * * * *"   # every hour
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py migrate && python manage.py process_pending_imports
+    envVars:
+      - fromGroup: receiptlens-env
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: .onrender.com
       - key: PYTHON_VERSION
         value: "3.13.5"

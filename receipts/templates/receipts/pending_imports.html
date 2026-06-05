@@ -1,0 +1,109 @@
+{% extends "receipts/base.html" %}
+{% block title %}Очікують завантаження — ReceiptLens{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Очікують завантаження</h2>
+  <a href="{% url 'scan' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-qr-code-scan"></i> Сканувати
+  </a>
+</div>
+
+{% if messages %}
+  {% for msg in messages %}
+    <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show">
+      {{ msg }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+
+{% if pending_imports %}
+<div class="list-group">
+  {% for pi in pending_imports %}
+  <div class="list-group-item">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+      <div class="flex-grow-1 min-w-0">
+
+        {# Status badge #}
+        {% if pi.status == "processed" %}
+          <span class="badge bg-success me-1">Оброблено</span>
+        {% elif pi.status == "pending" %}
+          <span class="badge bg-warning text-dark me-1">Очікує</span>
+        {% elif pi.status == "processing" %}
+          <span class="badge bg-info text-dark me-1">Обробляється</span>
+        {% else %}
+          <span class="badge bg-danger me-1">Помилка</span>
+        {% endif %}
+
+        <span class="small text-muted">Додано {{ pi.created_at|date:"d.m.Y H:i" }}</span>
+
+        <div class="text-muted small text-break mt-1">
+          <i class="bi bi-link-45deg"></i>
+          {% if pi.receipt %}
+            <a href="{% url 'receipt_detail' pi.receipt.pk %}" class="text-decoration-none">{{ pi.qr_url }}</a>
+          {% else %}
+            {{ pi.qr_url }}
+          {% endif %}
+        </div>
+
+        {% if pi.status == "processed" and pi.receipt %}
+          <div class="small text-success mt-1">
+            <i class="bi bi-check-circle"></i>
+            Чек збережено: {{ pi.receipt.store }} · {{ pi.receipt.datetime|date:"d.m.Y H:i" }} · {{ pi.receipt.total|floatformat:2 }} ₴
+          </div>
+        {% elif pi.status == "pending" and pi.next_retry_at %}
+          <div class="small text-muted mt-1">
+            <i class="bi bi-arrow-clockwise"></i>
+            Наступна спроба: {{ pi.next_retry_at|date:"d.m.Y H:i" }}
+            (спроб: {{ pi.retry_count }}/5)
+          </div>
+        {% elif pi.status == "failed" %}
+          <div class="small text-danger mt-1">
+            <i class="bi bi-exclamation-triangle"></i>
+            Всі спроби вичерпано.
+            {% if pi.last_error %}<span class="text-muted">{{ pi.last_error|truncatechars:120 }}</span>{% endif %}
+          </div>
+        {% endif %}
+
+      </div>
+
+      <div class="d-flex gap-1 flex-shrink-0">
+        {% if pi.status == "pending" or pi.status == "failed" %}
+        <form method="post" action="{% url 'pending_import_retry' pi.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-primary btn-sm" title="Спробувати зараз">
+            <i class="bi bi-arrow-clockwise"></i>
+          </button>
+        </form>
+        {% endif %}
+        {% if pi.status != "processing" %}
+        <form method="post" action="{% url 'pending_import_delete' pi.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-danger btn-sm" title="Видалити"
+                  onclick="return confirm('Видалити цей запис?')">
+            <i class="bi bi-trash"></i>
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<p class="text-muted small mt-3">
+  <i class="bi bi-info-circle"></i>
+  Система автоматично повторює спробу при кожному відкритті цієї сторінки, якщо настав час наступної спроби.
+  Розклад: через 2, 4, 8, 16 і 24 години після додавання.
+</p>
+
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-clock-history fs-1"></i>
+  <p class="mt-2">Немає чеків в очікуванні.</p>
+  <a href="{% url 'scan' %}" class="btn btn-primary btn-sm">Сканувати чек</a>
+</div>
+{% endif %}
+
+{% endblock %}

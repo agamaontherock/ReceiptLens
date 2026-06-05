@@ -79,6 +79,42 @@ class Item(models.Model):
         return f"{self.name} ({self.qty} {self.unit})"
 
 
+PENDING_IMPORT_RETRY_DELAYS_HOURS = [2, 4, 8, 16, 24]
+
+
+class PendingImport(models.Model):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    PROCESSED = "processed"
+    FAILED = "failed"
+    STATUS_CHOICES = [
+        (PENDING, "Очікує"),
+        (PROCESSING, "Обробляється"),
+        (PROCESSED, "Оброблено"),
+        (FAILED, "Помилка"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pending_imports"
+    )
+    qr_url = models.URLField(max_length=512)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=PENDING, db_index=True)
+    retry_count = models.IntegerField(default=0)
+    next_retry_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_error = models.TextField(blank=True)
+    receipt = models.OneToOneField(
+        Receipt, null=True, blank=True, on_delete=models.SET_NULL, related_name="pending_import"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"PendingImport #{self.pk} [{self.status}] {self.qr_url[:60]}"
+
+    def status_display(self):
+        return dict(self.STATUS_CHOICES).get(self.status, self.status)
+
+
 class CategoryRule(models.Model):
     BARCODE = "barcode"
     NAME = "name"

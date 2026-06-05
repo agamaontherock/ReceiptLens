@@ -14,9 +14,10 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from .forms import RegisterForm, LoginForm, ProfileForm
-from .models import Store, Category, Receipt, Item, UserProfile
+from .models import Store, Category, Receipt, Item, UserProfile, PendingImport, PENDING_IMPORT_RETRY_DELAYS_HOURS
 from .services.categorize import suggest_category_id
-from .services.dps import parse_qr_url, fetch_check
+from .services.dps import parse_qr_url, fetch_check, is_cabinet_check_url
+from .services.pending import process_pending_import, process_user_due_imports
 from .services.tax_check import parse_chk_response
 
 User = get_user_model()
@@ -101,11 +102,16 @@ def dashboard(request):
                       .annotate(total=Sum("total"))
                       .order_by("-total")[:3])
 
+    pending_count = PendingImport.objects.filter(
+        user=request.user, status__in=[PendingImport.PENDING, PendingImport.FAILED]
+    ).count()
+
     return render(request, "receipts/dashboard.html", {
         "recent": recent,
         "this_month_total": this_month_total,
         "last_month_total": last_month_total,
         "top_categories": top_categories,
+        "pending_count": pending_count,
     })
 
 
@@ -121,6 +127,13 @@ def receipts_parse(request):
     qr_url = request.POST.get("qr_url", "").strip()
     xml_b64 = request.POST.get("check_xml_b64", "").strip()
     source_qr_url = qr_url
+
+    if qr_url and not is_cabinet_check_url(qr_url):
+        return render(request, "receipts/_review_error.html", {
+            "error": "Непідтримуваний тип QR-коду. Підтримуються лише чеки з cabinet.tax.gov.ua/cashregs/.",
+            "hide_xml_fallback": True,
+        })
+
     try:
         if xml_b64:
             data = {"checkXml": xml_b64}
@@ -163,6 +176,11 @@ def receipts_parse(request):
             "source_qr_url": source_qr_url,
         })
     except Exception as e:
+        if qr_url and not xml_b64:
+            return render(request, "receipts/_review_pending.html", {
+                "error": str(e),
+                "qr_url": qr_url,
+            })
         return render(request, "receipts/_review_error.html", {"error": str(e)})
 
 
@@ -244,6 +262,68 @@ def receipt_delete(request, pk):
         receipt.delete()
         return redirect("dashboard")
     return redirect("receipt_detail", pk=pk)
+
+
+@login_required
+def pending_import_save(request):
+    if request.method != "POST":
+        return redirect("scan")
+    qr_url = request.POST.get("qr_url", "").strip()
+    if not qr_url or not is_cabinet_check_url(qr_url):
+        return redirect("scan")
+
+    existing = PendingImport.objects.filter(
+        user=request.user, qr_url=qr_url,
+        status__in=[PendingImport.PENDING, PendingImport.PROCESSING],
+    ).first()
+    if existing:
+        messages.info(request, "Це посилання вже додано до черги очікування.")
+        return redirect("pending_imports")
+
+    with transaction.atomic():
+        pi = PendingImport.objects.create(user=request.user, qr_url=qr_url)
+        from datetime import timedelta
+        pi.next_retry_at = pi.created_at + timedelta(hours=PENDING_IMPORT_RETRY_DELAYS_HOURS[0])
+        pi.save(update_fields=["next_retry_at"])
+
+    messages.success(request, "Посилання збережено. Спроба завантаження відбудеться через 2 години.")
+    return redirect("pending_imports")
+
+
+@login_required
+def pending_imports(request):
+    process_user_due_imports(request.user)
+    items = (
+        PendingImport.objects
+        .filter(user=request.user)
+        .select_related("receipt__store")
+        .order_by("-created_at")
+    )
+    return render(request, "receipts/pending_imports.html", {"pending_imports": items})
+
+
+@login_required
+def pending_import_retry(request, pk):
+    if request.method != "POST":
+        return redirect("pending_imports")
+    pi = get_object_or_404(PendingImport, pk=pk, user=request.user)
+    if pi.status in [PendingImport.PENDING, PendingImport.FAILED]:
+        if process_pending_import(pi):
+            messages.success(request, f"Чек успішно завантажено.")
+        else:
+            pi.refresh_from_db()
+            messages.warning(request, f"Не вдалося завантажити: {pi.last_error}")
+    return redirect("pending_imports")
+
+
+@login_required
+def pending_import_delete(request, pk):
+    if request.method != "POST":
+        return redirect("pending_imports")
+    pi = get_object_or_404(PendingImport, pk=pk, user=request.user)
+    pi.delete()
+    messages.success(request, "Запис видалено.")
+    return redirect("pending_imports")
 
 
 @login_required

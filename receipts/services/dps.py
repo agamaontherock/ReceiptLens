@@ -2,6 +2,11 @@ from urllib.parse import urlparse, parse_qs
 import httpx
 
 CHK_URL = "https://cabinet.tax.gov.ua/ws/api_public/rro/chkAllWeb"
+CABINET_CHECK_PREFIX = "https://cabinet.tax.gov.ua/cashregs/"
+
+
+def is_cabinet_check_url(url: str) -> bool:
+    return url.startswith(CABINET_CHECK_PREFIX)
 HEADERS = {
     "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
                    "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"),

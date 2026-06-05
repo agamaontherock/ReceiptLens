@@ -37,6 +37,16 @@
   </div>
 </div>
 
+{% if pending_count %}
+<div class="alert alert-warning d-flex justify-content-between align-items-center mb-4">
+  <span>
+    <i class="bi bi-clock-history me-1"></i>
+    {{ pending_count }} чек{{ pending_count|pluralize:",и,ів" }} очікують завантаження з ДПС
+  </span>
+  <a href="{% url 'pending_imports' %}" class="btn btn-warning btn-sm">Переглянути</a>
+</div>
+{% endif %}
+
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4>Останні чеки</h4>
   <a href="{% url 'scan' %}" class="btn btn-primary btn-sm">

@@ -2,6 +2,7 @@
   <strong>Помилка:</strong> {{ error }}
 </div>
 
+{% if not hide_xml_fallback %}
 <div class="card">
   <div class="card-body">
     <h6 class="card-title">Спробуйте ще раз або вставте XML вручну</h6>
@@ -25,3 +26,8 @@
     </form>
   </div>
 </div>
+{% else %}
+<a href="{% url 'scan' %}" class="btn btn-outline-secondary btn-sm">
+  <i class="bi bi-arrow-left"></i> Назад до сканування
+</a>
+{% endif %}
