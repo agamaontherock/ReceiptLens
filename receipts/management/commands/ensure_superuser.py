@@ -15,8 +15,16 @@ class Command(BaseCommand):
             return
 
         User = get_user_model()
-        if User.objects.filter(email__iexact=email).exists():
-            self.stdout.write(f"Superuser {email} already exists — skipping.")
+        user = User.objects.filter(email__iexact=email).first()
+        if user:
+            if user.is_superuser and user.is_staff:
+                self.stdout.write(f"Superuser {email} already exists — skipping.")
+                return
+            user.is_staff = True
+            user.is_superuser = True
+            user.set_password(password)
+            user.save(update_fields=["is_staff", "is_superuser", "password"])
+            self.stdout.write(self.style.SUCCESS(f"Existing user {email} promoted to superuser."))
             return
 
         User.objects.create_superuser(username=email, email=email, password=password)
