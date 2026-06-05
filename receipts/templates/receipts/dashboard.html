@@ -5,20 +5,26 @@
 
 <div class="row g-3 mb-4">
   <div class="col-md-4">
-    <div class="card text-bg-primary">
-      <div class="card-body">
-        <h6 class="card-subtitle mb-1 opacity-75">Цього місяця</h6>
-        <p class="card-text fs-3 fw-bold mb-0">{{ this_month_total|floatformat:2 }} ₴</p>
+    <a href="{% url 'analytics' %}?from_date={{ this_month_from }}&to_date={{ this_month_to }}"
+       class="text-decoration-none">
+      <div class="card text-bg-primary h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-1 opacity-75">Цього місяця</h6>
+          <p class="card-text fs-3 fw-bold mb-0">{{ this_month_total|floatformat:2 }} ₴</p>
+        </div>
       </div>
-    </div>
+    </a>
   </div>
   <div class="col-md-4">
-    <div class="card text-bg-secondary">
-      <div class="card-body">
-        <h6 class="card-subtitle mb-1 opacity-75">Минулого місяця</h6>
-        <p class="card-text fs-3 fw-bold mb-0">{{ last_month_total|floatformat:2 }} ₴</p>
+    <a href="{% url 'analytics' %}?from_date={{ last_month_from }}&to_date={{ last_month_to }}"
+       class="text-decoration-none">
+      <div class="card text-bg-secondary h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-1 opacity-75">Минулого місяця</h6>
+          <p class="card-text fs-3 fw-bold mb-0">{{ last_month_total|floatformat:2 }} ₴</p>
+        </div>
       </div>
-    </div>
+    </a>
   </div>
   <div class="col-md-4">
     <div class="card">

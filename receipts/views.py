@@ -112,6 +112,10 @@ def dashboard(request):
         "last_month_total": last_month_total,
         "top_categories": top_categories,
         "pending_count": pending_count,
+        "this_month_from": this_month_start.date().isoformat(),
+        "this_month_to": now.date().isoformat(),
+        "last_month_from": last_month_start.date().isoformat(),
+        "last_month_to": last_month_end.date().isoformat(),
     })
 
 
