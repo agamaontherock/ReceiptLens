@@ -4,10 +4,12 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python manage.py collectstatic --no-input && python manage.py migrate && python manage.py seed_categories && gunicorn receiptlens.wsgi:application --bind 0.0.0.0:$PORT --workers 2
+    startCommand: python manage.py collectstatic --no-input && python manage.py migrate && python manage.py seed_categories && python manage.py ensure_superuser && gunicorn receiptlens.wsgi:application --bind 0.0.0.0:$PORT --workers 2
     envVars:
-      # Shared vars (SECRET_KEY, DATABASE_URL) live in Environment Group
-      # "receiptlens-env" — create it in the Render dashboard first.
+      # Shared vars live in Environment Group "receiptlens-env".
+      # Create it in the Render dashboard with these keys:
+      #   SECRET_KEY, DATABASE_URL,
+      #   DJANGO_SUPERUSER_EMAIL, DJANGO_SUPERUSER_PASSWORD
       - fromGroup: receiptlens-env
       - key: DEBUG
         value: "False"
