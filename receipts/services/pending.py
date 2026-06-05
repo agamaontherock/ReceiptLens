@@ -58,6 +58,18 @@ def process_pending_import(pending_import) -> bool:
 
     try:
         with transaction.atomic():
+            existing = Receipt.objects.filter(
+                user=pending_import.user,
+                fn=receipt_data.fiscal_rro,
+                check_id=receipt_data.order_num,
+            ).first()
+            if existing:
+                pending_import.status = PendingImport.PROCESSED
+                pending_import.receipt = existing
+                pending_import.last_error = ""
+                pending_import.save(update_fields=["status", "receipt", "last_error", "updated_at"])
+                return True
+
             store, _ = Store.objects.update_or_create(
                 fiscal_rro=receipt_data.fiscal_rro,
                 defaults={"legal_name": receipt_data.org_legal_name},

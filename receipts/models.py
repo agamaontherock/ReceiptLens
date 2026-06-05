@@ -59,6 +59,15 @@ class Receipt(models.Model):
     qr_url = models.URLField(max_length=512, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "fn", "check_id"],
+                condition=models.Q(fn__gt="") & models.Q(check_id__gt=""),
+                name="unique_receipt_per_user",
+            )
+        ]
+
     def __str__(self):
         return f"{self.store} {self.datetime:%Y-%m-%d} {self.total} ₴"
 

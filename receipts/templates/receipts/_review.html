@@ -2,6 +2,18 @@
 
 {% if request.user.is_authenticated %}
 
+{% if existing_receipt %}
+<div class="alert alert-warning d-flex justify-content-between align-items-center">
+  <span>
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    Цей чек вже збережено {{ existing_receipt.created_at|date:"d.m.Y" }}.
+  </span>
+  <a href="{% url 'receipt_detail' existing_receipt.pk %}" class="btn btn-outline-warning btn-sm">
+    Переглянути
+  </a>
+</div>
+{% endif %}
+
 {# ── Registered: editable form ── #}
 <form method="post" action="{% url 'receipts_save' %}">
   {% csrf_token %}

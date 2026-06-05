@@ -169,11 +169,21 @@ def receipts_parse(request):
             "values": [round(v, 2) for v in cat_totals.values()],
         })
 
+        existing_receipt = None
+        if request.user.is_authenticated and receipt.fiscal_rro and receipt.order_num:
+            existing_receipt = (
+                Receipt.objects
+                .filter(user=request.user, fn=receipt.fiscal_rro, check_id=receipt.order_num)
+                .select_related("store")
+                .first()
+            )
+
         return render(request, "receipts/_review.html", {
             "receipt": receipt, "store": store,
             "categories": categories, "items": items,
             "preview_chart": preview_chart,
             "source_qr_url": source_qr_url,
+            "existing_receipt": existing_receipt,
         })
     except Exception as e:
         if qr_url and not xml_b64:
@@ -200,6 +210,12 @@ def receipts_save(request):
     source = request.POST.get("source", "qr").strip()
     qr_url = request.POST.get("qr_url", "").strip()
     item_count = int(request.POST.get("item_count", 0))
+
+    if fn and check_id:
+        existing = Receipt.objects.filter(user=request.user, fn=fn, check_id=check_id).first()
+        if existing:
+            messages.info(request, "Цей чек вже збережено раніше.")
+            return redirect("receipt_detail", pk=existing.pk)
 
     store, _ = Store.objects.update_or_create(
         fiscal_rro=fiscal_rro,
