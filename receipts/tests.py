@@ -572,3 +572,94 @@ class ManualReceiptStoreTests(TestCase):
         from receipts.models import Store
         self.assertTrue(Store.objects.filter(fiscal_rro="manual:АТБ").exists())
         self.assertTrue(Store.objects.filter(fiscal_rro="manual:Novus").exists())
+
+
+# ---------------------------------------------------------------------------
+# receipt_edit view
+# ---------------------------------------------------------------------------
+
+class ReceiptEditViewTests(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="edit@ex.com", password="pw")
+        self.other = User.objects.create_user(username="other@ex.com", password="pw")
+        self.client = Client()
+        self.client.login(username="edit@ex.com", password="pw")
+
+        from receipts.models import Store, Receipt, Item
+        from django.utils import timezone
+        store = Store.objects.create(fiscal_rro="manual:Silpo", display_name="Silpo")
+        self.receipt = Receipt.objects.create(
+            user=self.user, store=store, source="manual",
+            datetime=timezone.now(), total="55.00",
+        )
+        Item.objects.create(receipt=self.receipt, name="Milk", qty="2", unit="pcs",
+                            unit_price="10.00", total="20.00")
+        Item.objects.create(receipt=self.receipt, name="Bread", qty="1", unit="pcs",
+                            unit_price="35.00", total="35.00")
+
+    def _post_edit(self, pk, shop="Silpo", total="55.00", items=None):
+        if items is None:
+            items = [{"name": "Milk", "qty": "2", "unit": "pcs", "price": "10.00", "total": "20.00"}]
+        data = {
+            "display_name": shop,
+            "receipt_datetime": "2026-06-01T12:00",
+            "receipt_total": total,
+            "item_count": str(len(items)),
+            "for_recipient": "",
+        }
+        for i, it in enumerate(items):
+            data[f"name_{i}"] = it["name"]
+            data[f"qty_{i}"] = it["qty"]
+            data[f"unit_{i}"] = it["unit"]
+            data[f"price_{i}"] = it["price"]
+            data[f"total_{i}"] = it["total"]
+            data[f"item_for_recipient_{i}"] = ""
+        return self.client.post(reverse("receipt_edit", args=[pk]), data)
+
+    def test_get_edit_page_returns_200(self):
+        resp = self.client.get(reverse("receipt_edit", args=[self.receipt.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Silpo")
+        self.assertContains(resp, "Milk")
+        self.assertContains(resp, "Bread")
+
+    def test_post_updates_store_name(self):
+        self._post_edit(self.receipt.pk, shop="Novus")
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.store.display_name, "Novus")
+
+    def test_post_replaces_items(self):
+        from receipts.models import Item
+        self._post_edit(self.receipt.pk, items=[
+            {"name": "Eggs", "qty": "10", "unit": "pcs", "price": "4.50", "total": "45.00"},
+        ])
+        names = list(Item.objects.filter(receipt=self.receipt).values_list("name", flat=True))
+        self.assertEqual(names, ["Eggs"])
+
+    def test_post_updates_total(self):
+        self._post_edit(self.receipt.pk, total="99.99")
+        self.receipt.refresh_from_db()
+        from decimal import Decimal
+        self.assertEqual(self.receipt.total, Decimal("99.99"))
+
+    def test_post_redirects_to_detail(self):
+        resp = self._post_edit(self.receipt.pk)
+        self.assertRedirects(resp, reverse("receipt_detail", args=[self.receipt.pk]))
+
+    def test_qr_receipt_edit_returns_404(self):
+        from receipts.models import Store, Receipt
+        from django.utils import timezone
+        store = Store.objects.create(fiscal_rro="4000935353", display_name="Сільпо")
+        qr_receipt = Receipt.objects.create(
+            user=self.user, store=store, source="qr",
+            datetime=timezone.now(), total="100.00",
+        )
+        resp = self.client.get(reverse("receipt_edit", args=[qr_receipt.pk]))
+        self.assertEqual(resp.status_code, 404)
+
+    def test_edit_requires_ownership(self):
+        self.client.logout()
+        self.client.login(username="other@ex.com", password="pw")
+        resp = self.client.get(reverse("receipt_edit", args=[self.receipt.pk]))
+        self.assertEqual(resp.status_code, 404)

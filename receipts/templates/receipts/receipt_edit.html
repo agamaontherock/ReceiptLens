@@ -1,0 +1,179 @@
+{% extends "receipts/base.html" %}
+{% load receipt_filters %}
+{% block title %}Редагувати чек — ReceiptLens{% endblock %}
+
+{% block content %}
+<h2 class="mb-3">Редагувати чек</h2>
+
+<form method="post"
+      x-data="editForm({{ recipients|tojson }}, {{ initial_rows|tojson }}, {{ initial_recipient|tojson }})">
+  {% csrf_token %}
+  <input type="hidden" :name="'item_count'" :value="rows.length">
+  <input type="hidden" name="for_recipient" :value="forRecipient ?? ''">
+
+  {# ── "For:" chip ── #}
+  <div class="d-flex align-items-center gap-2 mb-3 position-relative">
+    <span class="text-muted small">Для:</span>
+    <button type="button" class="btn btn-sm"
+            :class="forRecipient ? 'btn-warning' : 'btn-outline-secondary'"
+            @click="showPicker = !showPicker">
+      <span x-text="forRecipient ?? 'Себе'"></span>
+      <i class="bi bi-chevron-down ms-1"></i>
+    </button>
+    <div x-show="showPicker" x-cloak @click.outside="showPicker = false"
+         class="card shadow position-absolute z-3 p-2 mt-1"
+         style="top:100%; left:2.5rem; min-width:200px;">
+      <button type="button" class="btn btn-sm btn-light text-start w-100 mb-1"
+              @click="forRecipient = null; showPicker = false">👤 Себе</button>
+      <template x-for="r in recipients" :key="r">
+        <button type="button" class="btn btn-sm text-start w-100 mb-1"
+                :class="forRecipient === r ? 'btn-warning' : 'btn-light'"
+                @click="forRecipient = r; showPicker = false"
+                x-text="'🎁 ' + r"></button>
+      </template>
+      <template x-if="!showAddNew">
+        <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-1"
+                @click="showAddNew = true">+ Додати</button>
+      </template>
+      <template x-if="showAddNew">
+        <div class="d-flex gap-1 mt-1">
+          <input x-model="newLabel" type="text" class="form-control form-control-sm"
+                 placeholder="Мама, Друзі…"
+                 @keydown.enter.prevent="addRecipient()">
+          <button type="button" class="btn btn-sm btn-primary" @click="addRecipient()">✓</button>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="card-title">Деталі чеку</h5>
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label class="form-label">Магазин</label>
+          <input type="text" name="display_name" class="form-control"
+                 value="{{ receipt.store.display_name }}"
+                 placeholder="Назва магазину">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Дата та час</label>
+          <input type="datetime-local" name="receipt_datetime" class="form-control"
+                 value="{{ receipt.datetime|date:'Y-m-d' }}T{{ receipt.datetime|date:'H:i' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Сума ₴</label>
+          <input type="number" step="0.01" name="receipt_total" class="form-control"
+                 value="{{ receipt.total }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Назва</th>
+              <th style="width:80px">К-сть</th>
+              <th style="width:60px">Од.</th>
+              <th style="width:90px">Ціна</th>
+              <th style="width:90px">Сума</th>
+              <th style="width:160px">Категорія</th>
+              <th style="width:40px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(row, i) in rows" :key="row.id">
+              <tr>
+                <input type="hidden" :name="'item_for_recipient_' + i" :value="forRecipient ?? ''">
+                <td>
+                  <input type="text" :name="'name_' + i" class="form-control form-control-sm"
+                         x-model="row.name" placeholder="Назва товару">
+                </td>
+                <td>
+                  <input type="number" step="0.001" :name="'qty_' + i"
+                         class="form-control form-control-sm" x-model.number="row.qty">
+                </td>
+                <td>
+                  <select :name="'unit_' + i" class="form-select form-select-sm" x-model="row.unit">
+                    <option value="pcs">шт</option>
+                    <option value="kg">кг</option>
+                  </select>
+                </td>
+                <td>
+                  <input type="number" step="0.01" :name="'price_' + i"
+                         class="form-control form-control-sm" x-model.number="row.price">
+                </td>
+                <td>
+                  <span x-text="(row.qty * row.price).toFixed(2)" class="fw-semibold"></span>
+                  <input type="hidden" :name="'total_' + i" :value="(row.qty * row.price).toFixed(2)">
+                </td>
+                <td>
+                  <select :name="'category_id_' + i" class="form-select form-select-sm"
+                          x-model="row.categoryId">
+                    <option value="">—</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.pk }}">{{ cat.name }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <button type="button" class="btn btn-sm btn-outline-danger"
+                          @click="rows.splice(i, 1)">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer">
+      <button type="button" class="btn btn-outline-secondary btn-sm" @click="addRow()">
+        <i class="bi bi-plus-circle"></i> Додати рядок
+      </button>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a href="{% url 'receipt_detail' receipt.pk %}" class="btn btn-outline-secondary">
+      <i class="bi bi-x-circle"></i> Скасувати
+    </a>
+    <button type="submit" class="btn btn-success">
+      <i class="bi bi-check-circle"></i> Зберегти зміни
+    </button>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function editForm(recipients, initialRows, initialRecipient) {
+  return {
+    rows: initialRows.map((r, i) => ({ ...r, id: i + 1 })),
+    _nextId: initialRows.length + 1,
+    addRow() {
+      this.rows.push({ id: this._nextId++, name: '', qty: 1, unit: 'pcs', price: 0, categoryId: '' });
+    },
+    recipients,
+    forRecipient: initialRecipient,
+    showPicker: false,
+    showAddNew: false,
+    newLabel: '',
+    addRecipient() {
+      const name = this.newLabel.trim();
+      if (!name) return;
+      if (!this.recipients.includes(name)) this.recipients.push(name);
+      this.forRecipient = name;
+      this.showPicker = false;
+      this.newLabel = '';
+      this.showAddNew = false;
+    },
+  };
+}
+</script>
+{% endblock %}

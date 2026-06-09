@@ -383,6 +383,91 @@ def pending_import_delete(request, pk):
 
 
 @login_required
+@transaction.atomic
+def receipt_edit(request, pk):
+    receipt = get_object_or_404(Receipt, pk=pk, user=request.user, source="manual")
+
+    if request.method == "POST":
+        display_name = request.POST.get("display_name", "").strip()
+        receipt_datetime_str = request.POST.get("receipt_datetime", "").strip()
+        total_str = request.POST.get("receipt_total", "0").strip()
+        item_count = int(request.POST.get("item_count", 0))
+
+        manual_key = f"manual:{display_name}"[:32]
+        store, _ = Store.objects.get_or_create(
+            fiscal_rro=manual_key,
+            defaults={"display_name": display_name, "legal_name": ""},
+        )
+
+        receipt_dt = parse_datetime(receipt_datetime_str)
+        if receipt_dt is None:
+            receipt_dt = timezone.now()
+        if timezone.is_naive(receipt_dt):
+            receipt_dt = timezone.make_aware(receipt_dt)
+
+        receipt_label = request.POST.get("for_recipient", "").strip()
+        receipt_recipient = None
+        if receipt_label:
+            receipt_recipient, _ = Recipient.objects.get_or_create(name=receipt_label)
+
+        receipt.store = store
+        receipt.datetime = receipt_dt
+        receipt.total = total_str or 0
+        receipt.for_recipient = receipt_recipient
+        receipt.save()
+
+        receipt.items.all().delete()
+        for i in range(item_count):
+            name = request.POST.get(f"name_{i}", "").strip()
+            if not name:
+                continue
+            qty = request.POST.get(f"qty_{i}", "0").strip() or "0"
+            unit = request.POST.get(f"unit_{i}", "pcs").strip()
+            unit_price = request.POST.get(f"price_{i}", "0").strip() or "0"
+            total = request.POST.get(f"total_{i}", "0").strip() or "0"
+            category_id_str = request.POST.get(f"category_id_{i}", "").strip()
+            category_id = int(category_id_str) if category_id_str else None
+
+            item_label = request.POST.get(f"item_for_recipient_{i}", "").strip()
+            item_recipient = None
+            if item_label:
+                item_recipient, _ = Recipient.objects.get_or_create(name=item_label)
+
+            Item.objects.create(
+                receipt=receipt,
+                name=name, qty=qty, unit=unit,
+                unit_price=unit_price, total=total,
+                category_id=category_id,
+                for_recipient=item_recipient,
+            )
+
+        messages.success(request, "Чек оновлено.")
+        return redirect("receipt_detail", pk=receipt.pk)
+
+    categories = Category.objects.order_by("name")
+    recipients = list(Recipient.objects.values_list("name", flat=True))
+    initial_rows = [
+        {
+            "name": item.name,
+            "qty": float(item.qty),
+            "unit": item.unit,
+            "price": float(item.unit_price),
+            "categoryId": item.category_id or "",
+        }
+        for item in receipt.items.select_related("category").order_by("pk")
+    ]
+    initial_recipient = receipt.for_recipient.name if receipt.for_recipient else None
+
+    return render(request, "receipts/receipt_edit.html", {
+        "receipt": receipt,
+        "categories": categories,
+        "recipients": recipients,
+        "initial_rows": initial_rows,
+        "initial_recipient": initial_recipient,
+    })
+
+
+@login_required
 def manual(request):
     categories = Category.objects.order_by("name")
     recipients = list(Recipient.objects.values_list("name", flat=True))

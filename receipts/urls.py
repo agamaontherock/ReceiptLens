@@ -7,6 +7,7 @@ urlpatterns = [
     path("receipts/parse/", views.receipts_parse, name="receipts_parse"),
     path("receipts/save/", views.receipts_save, name="receipts_save"),
     path("receipts/<int:pk>/", views.receipt_detail, name="receipt_detail"),
+    path("receipts/<int:pk>/edit/", views.receipt_edit, name="receipt_edit"),
     path("receipts/<int:pk>/delete/", views.receipt_delete, name="receipt_delete"),
     path("pending-imports/", views.pending_imports, name="pending_imports"),
     path("pending-imports/save/", views.pending_import_save, name="pending_import_save"),

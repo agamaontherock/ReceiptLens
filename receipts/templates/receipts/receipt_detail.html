@@ -7,6 +7,11 @@
     <a href="/" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left"></i> Назад
     </a>
+    {% if receipt.source == "manual" %}
+    <a href="{% url 'receipt_edit' receipt.pk %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-pencil"></i> Редагувати
+    </a>
+    {% endif %}
     <button type="button" class="btn btn-outline-danger btn-sm"
             data-bs-toggle="modal" data-bs-target="#deleteModal">
       <i class="bi bi-trash"></i> Видалити
