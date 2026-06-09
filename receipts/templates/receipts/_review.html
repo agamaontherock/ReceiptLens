@@ -107,7 +107,7 @@
           <tbody>
             {% for it in items %}
             <tr x-data="{ idx: {{ forloop.counter0 }}, qty: {{ it.qty|unlocalize }}, price: {{ it.unit_price|unlocalize }} }"
-                :class="{ 'table-warning': itemRecipients[idx] !== null || {{ 'false' if it.suggested_category_id else 'true' }} }">
+                :class="{ 'table-warning': itemRecipients[idx] !== null || {% if it.suggested_category_id %}false{% else %}true{% endif %} }">
               <input type="hidden" name="barcode_{{ forloop.counter0 }}" value="{{ it.barcode }}">
               <input type="hidden" name="code_{{ forloop.counter0 }}" value="{{ it.code }}">
               <input type="hidden" :name="'item_for_recipient_' + idx" :value="itemRecipients[idx] ?? ''">

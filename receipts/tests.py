@@ -464,3 +464,49 @@ class PendingImportViewTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Непідтримуваний тип QR-коду")
+
+
+# ---------------------------------------------------------------------------
+# receipts_parse view — successful-fetch behaviour
+# ---------------------------------------------------------------------------
+
+class ReceiptsParseViewTests(TestCase):
+    """
+    Guards against silent regressions in receipts_parse where any exception
+    inside the broad try/except (e.g. a template syntax error, a bad DB query)
+    causes the view to return the pending-import prompt instead of the review form.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="parse@ex.com", password="pw")
+        self.client = Client()
+        self.client.login(username="parse@ex.com", password="pw")
+
+    def test_review_template_loads_without_syntax_errors(self):
+        from django.template import Engine, TemplateSyntaxError
+        try:
+            Engine.get_default().get_template("receipts/_review.html")
+        except TemplateSyntaxError as exc:
+            self.fail(f"_review.html has a template syntax error: {exc}")
+
+    @patch("receipts.views.fetch_check", return_value=FAKE_CHECK_DATA)
+    def test_successful_fetch_renders_review_form(self, _mock_fetch):
+        """fetch succeeds → review form is shown, not the pending-import prompt."""
+        resp = self.client.post(
+            reverse("receipts_parse"),
+            {"qr_url": "https://cabinet.tax.gov.ua/cashregs/check"
+                       "?id=175285&fn=4000935353&sm=316.66&date=20260602&time=211044"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Зберегти чек")
+        self.assertNotContains(resp, "Зберегти для повторної спроби")
+
+    @patch("receipts.views.fetch_check", return_value=FAKE_CHECK_DATA)
+    def test_successful_fetch_does_not_create_pending_import(self, _mock_fetch):
+        """A working fetch must never create a PendingImport record."""
+        self.client.post(
+            reverse("receipts_parse"),
+            {"qr_url": "https://cabinet.tax.gov.ua/cashregs/check"
+                       "?id=175285&fn=4000935353&sm=316.66&date=20260602&time=211044"},
+        )
+        self.assertEqual(PendingImport.objects.count(), 0)
