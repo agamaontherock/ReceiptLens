@@ -59,7 +59,7 @@
             (спроб: {{ pi.retry_count }}/5)
           </div>
         {% elif pi.status == "failed" %}
-          <div class="small text-danger mt-1">
+          <div class="small text-danger mt-1 text-break">
             <i class="bi bi-exclamation-triangle"></i>
             Всі спроби вичерпано.
             {% if pi.last_error %}<span class="text-muted">{{ pi.last_error|truncatechars:120 }}</span>{% endif %}
