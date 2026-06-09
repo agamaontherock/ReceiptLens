@@ -1,5 +1,11 @@
 from django.contrib import admin
-from .models import Store, Category, Receipt, Item, CategoryRule
+from .models import Store, Category, Receipt, Item, CategoryRule, Recipient
+
+
+@admin.register(Recipient)
+class RecipientAdmin(admin.ModelAdmin):
+    list_display = ["name", "created_at"]
+    search_fields = ["name"]
 
 
 @admin.register(Store)
@@ -15,16 +21,16 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Receipt)
 class ReceiptAdmin(admin.ModelAdmin):
-    list_display = ("store", "datetime", "total", "source")
-    list_filter = ("source", "store")
+    list_display = ("store", "datetime", "total", "for_recipient", "source")
+    list_filter = ("source", "store", "for_recipient")
     date_hierarchy = "datetime"
 
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ("name", "barcode", "category", "total")
+    list_display = ("name", "barcode", "category", "for_recipient", "total")
     search_fields = ("name", "barcode")
-    list_filter = ("category",)
+    list_filter = ("category", "for_recipient")
 
 
 @admin.register(CategoryRule)

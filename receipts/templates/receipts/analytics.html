@@ -10,7 +10,7 @@
   <h2>Аналітика</h2>
 </div>
 
-<form method="get" class="row g-2 mb-4 align-items-end">
+<form method="get" class="row g-2 mb-3 align-items-end">
   <div class="col-auto">
     <label class="form-label mb-1">Від</label>
     <input type="date" name="from_date" class="form-control form-control-sm" value="{{ from_date }}">
@@ -19,10 +19,45 @@
     <label class="form-label mb-1">До</label>
     <input type="date" name="to_date" class="form-control form-control-sm" value="{{ to_date }}">
   </div>
+  <input type="hidden" name="mode" value="{{ mode }}">
+  {% if recipient_id %}<input type="hidden" name="recipient_id" value="{{ recipient_id }}">{% endif %}
   <div class="col-auto">
     <button type="submit" class="btn btn-primary btn-sm">Застосувати</button>
   </div>
 </form>
+
+{# Spend mode toggle #}
+<div class="btn-group mb-3" role="group" aria-label="Режим витрат">
+  <a href="?mode=all&from_date={{ from_date }}&to_date={{ to_date }}"
+     class="btn btn-sm {% if mode == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+    Всі
+  </a>
+  <a href="?mode=personal&from_date={{ from_date }}&to_date={{ to_date }}"
+     class="btn btn-sm {% if mode == 'personal' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+    👤 Особисті
+  </a>
+  <a href="?mode=gifts&from_date={{ from_date }}&to_date={{ to_date }}"
+     class="btn btn-sm {% if mode == 'gifts' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+    🎁 Подарунки
+  </a>
+</div>
+
+{# Recipient filter — shown in gifts/all mode when labels exist #}
+{% if mode != 'personal' and recipients %}
+<div class="d-flex gap-2 flex-wrap mb-4 align-items-center">
+  <span class="text-muted small">Для:</span>
+  <a href="?mode={{ mode }}&from_date={{ from_date }}&to_date={{ to_date }}"
+     class="btn btn-sm {% if not recipient_id %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+    Усі
+  </a>
+  {% for r in recipients %}
+  <a href="?mode={{ mode }}&recipient_id={{ r.id }}&from_date={{ from_date }}&to_date={{ to_date }}"
+     class="btn btn-sm {% if recipient_id == r.id|stringformat:'s' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+    {{ r.name }}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
 
 <div class="row g-4">
   <div class="col-md-6">

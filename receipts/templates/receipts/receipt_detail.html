@@ -27,6 +27,10 @@
       <dd class="col-sm-9">{{ receipt.source }}</dd>
       <dt class="col-sm-3">Сума</dt>
       <dd class="col-sm-9"><strong>{{ receipt.total|floatformat:2 }} ₴</strong></dd>
+      {% if receipt.for_recipient %}
+      <dt class="col-sm-3">Для</dt>
+      <dd class="col-sm-9"><span class="badge bg-warning text-dark">🎁 {{ receipt.for_recipient }}</span></dd>
+      {% endif %}
       {% if receipt.qr_url %}
       <dt class="col-sm-3">QR-посилання</dt>
       <dd class="col-sm-9">
@@ -53,9 +57,14 @@
     </thead>
     <tbody>
       {% for item in items %}
-      <tr>
+      <tr {% if item.for_recipient %}class="table-warning"{% endif %}>
         <td>{{ forloop.counter }}</td>
-        <td>{{ item.name }}</td>
+        <td>
+          {{ item.name }}
+          {% if item.for_recipient %}
+            <span class="badge bg-warning text-dark ms-1">🎁 {{ item.for_recipient }}</span>
+          {% endif %}
+        </td>
         <td>{{ item.qty }} {{ item.unit }}</td>
         <td>{{ item.unit_price|floatformat:2 }} ₴</td>
         <td>{{ item.total|floatformat:2 }} ₴</td>

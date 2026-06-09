@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from .forms import RegisterForm, LoginForm, ProfileForm
-from .models import Store, Category, Receipt, Item, UserProfile, PendingImport, PENDING_IMPORT_RETRY_DELAYS_HOURS
+from .models import Store, Category, Receipt, Item, UserProfile, PendingImport, Recipient, PENDING_IMPORT_RETRY_DELAYS_HOURS
 from .services.categorize import suggest_category_id
 from .services.dps import parse_qr_url, fetch_check, is_cabinet_check_url
 from .services.pending import process_pending_import, process_user_due_imports
@@ -102,6 +102,16 @@ def dashboard(request):
                       .annotate(total=Sum("total"))
                       .order_by("-total")[:3])
 
+    gift_this_month = (
+        Item.objects
+        .filter(
+            receipt__user=request.user,
+            receipt__datetime__gte=this_month_start,
+            for_recipient__isnull=False,
+        )
+        .aggregate(total=Sum("total"))["total"] or 0
+    )
+
     pending_count = PendingImport.objects.filter(
         user=request.user, status__in=[PendingImport.PENDING, PendingImport.FAILED]
     ).count()
@@ -112,6 +122,7 @@ def dashboard(request):
         "last_month_total": last_month_total,
         "top_categories": top_categories,
         "pending_count": pending_count,
+        "gift_this_month": gift_this_month,
         "this_month_from": this_month_start.date().isoformat(),
         "this_month_to": now.date().isoformat(),
         "last_month_from": last_month_start.date().isoformat(),
@@ -182,12 +193,15 @@ def receipts_parse(request):
                 .first()
             )
 
+        recipients = list(Recipient.objects.values_list("name", flat=True))
+
         return render(request, "receipts/_review.html", {
             "receipt": receipt, "store": store,
             "categories": categories, "items": items,
             "preview_chart": preview_chart,
             "source_qr_url": source_qr_url,
             "existing_receipt": existing_receipt,
+            "recipients": recipients,
         })
     except Exception as e:
         if qr_url and not xml_b64:
@@ -232,6 +246,11 @@ def receipts_save(request):
     if timezone.is_naive(receipt_dt):
         receipt_dt = timezone.make_aware(receipt_dt)
 
+    receipt_label = request.POST.get("for_recipient", "").strip()
+    receipt_recipient = None
+    if receipt_label:
+        receipt_recipient, _ = Recipient.objects.get_or_create(name=receipt_label)
+
     receipt = Receipt.objects.create(
         user=request.user,
         store=store,
@@ -241,6 +260,7 @@ def receipts_save(request):
         total=total_str or 0,
         source=source,
         qr_url=qr_url,
+        for_recipient=receipt_recipient,
     )
 
     for i in range(item_count):
@@ -256,10 +276,17 @@ def receipts_save(request):
         category_id_str = request.POST.get(f"category_id_{i}", "").strip()
         category_id = int(category_id_str) if category_id_str else None
 
+        item_label = request.POST.get(f"item_for_recipient_{i}", "").strip()
+        item_recipient = None
+        if item_label:
+            item_recipient, _ = Recipient.objects.get_or_create(name=item_label)
+
         Item.objects.create(
             receipt=receipt, code=code, barcode=barcode,
             name=name, qty=qty, unit=unit,
-            unit_price=unit_price, total=total, category_id=category_id,
+            unit_price=unit_price, total=total,
+            category_id=category_id,
+            for_recipient=item_recipient,
         )
 
     return redirect("receipt_detail", pk=receipt.pk)
@@ -349,9 +376,11 @@ def pending_import_delete(request, pk):
 @login_required
 def manual(request):
     categories = Category.objects.order_by("name")
+    recipients = list(Recipient.objects.values_list("name", flat=True))
     return render(request, "receipts/manual.html", {
         "categories": categories,
         "now": timezone.now(),
+        "recipients": recipients,
     })
 
 
@@ -364,6 +393,8 @@ def analytics(request):
     today = timezone.now().date()
     from_date_str = request.GET.get("from_date", today.replace(day=1).isoformat())
     to_date_str = request.GET.get("to_date", today.isoformat())
+    mode = request.GET.get("mode", "all")
+    recipient_id = request.GET.get("recipient_id", "")
 
     try:
         from_date = datetime.date.fromisoformat(from_date_str)
@@ -377,11 +408,16 @@ def analytics(request):
         receipt__datetime__date__gte=from_date,
         receipt__datetime__date__lte=to_date,
     )
-    base_receipts = Receipt.objects.filter(
-        user=request.user,
-        datetime__date__gte=from_date,
-        datetime__date__lte=to_date,
-    )
+
+    if mode == "personal":
+        base_items = base_items.filter(for_recipient__isnull=True)
+    elif mode == "gifts":
+        base_items = base_items.filter(for_recipient__isnull=False)
+        if recipient_id:
+            base_items = base_items.filter(for_recipient_id=recipient_id)
+
+    # Use Item aggregations for store/month when any filter is active
+    filtered = mode != "all" or bool(recipient_id)
 
     by_category = list(
         base_items.exclude(category=None)
@@ -389,26 +425,53 @@ def analytics(request):
         .annotate(total=Sum("total"))
         .order_by("-total")
     )
-    by_store = list(
-        base_receipts
-        .values("store__display_name", "store__legal_name")
-        .annotate(total=Sum("total"))
-        .order_by("-total")
-    )
-    by_month = list(
-        base_receipts
-        .annotate(month=TruncMonth("datetime"))
-        .values("month")
-        .annotate(total=Sum("total"))
-        .order_by("month")
-    )
 
-    def store_label(row):
-        return row["store__display_name"] or row["store__legal_name"] or "Unknown"
+    if filtered:
+        by_store = list(
+            base_items
+            .values("receipt__store__display_name", "receipt__store__legal_name")
+            .annotate(total=Sum("total"))
+            .order_by("-total")
+        )
+        by_month = list(
+            base_items
+            .annotate(month=TruncMonth("receipt__datetime"))
+            .values("month")
+            .annotate(total=Sum("total"))
+            .order_by("month")
+        )
+        def store_label(row):
+            return row["receipt__store__display_name"] or row["receipt__store__legal_name"] or "Unknown"
+    else:
+        base_receipts = Receipt.objects.filter(
+            user=request.user,
+            datetime__date__gte=from_date,
+            datetime__date__lte=to_date,
+        )
+        by_store = list(
+            base_receipts
+            .values("store__display_name", "store__legal_name")
+            .annotate(total=Sum("total"))
+            .order_by("-total")
+        )
+        by_month = list(
+            base_receipts
+            .annotate(month=TruncMonth("datetime"))
+            .values("month")
+            .annotate(total=Sum("total"))
+            .order_by("month")
+        )
+        def store_label(row):
+            return row["store__display_name"] or row["store__legal_name"] or "Unknown"
+
+    recipients = Recipient.objects.all()
 
     return render(request, "receipts/analytics.html", {
         "from_date": from_date_str,
         "to_date": to_date_str,
+        "mode": mode,
+        "recipient_id": recipient_id,
+        "recipients": recipients,
         "cat_data": json.dumps({
             "labels": [r["category__name"] for r in by_category],
             "values": [float(r["total"]) for r in by_category],

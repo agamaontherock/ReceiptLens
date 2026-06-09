@@ -11,6 +11,14 @@
         <div class="card-body">
           <h6 class="card-subtitle mb-1 opacity-75">Цього місяця</h6>
           <p class="card-text fs-3 fw-bold mb-0">{{ this_month_total|floatformat:2 }} ₴</p>
+          {% if gift_this_month %}
+          <p class="card-text small mb-0 opacity-75 mt-1">
+            <a href="{% url 'analytics' %}?mode=gifts&from_date={{ this_month_from }}&to_date={{ this_month_to }}"
+               class="text-white text-decoration-none">
+              🎁 {{ gift_this_month|floatformat:2 }} ₴ подарунки
+            </a>
+          </p>
+          {% endif %}
         </div>
       </div>
     </a>

@@ -1,4 +1,4 @@
-{% load l10n %}
+{% load l10n receipt_filters %}
 
 {% if request.user.is_authenticated %}
 
@@ -15,7 +15,8 @@
 {% endif %}
 
 {# ── Registered: editable form ── #}
-<form method="post" action="{% url 'receipts_save' %}">
+<form method="post" action="{% url 'receipts_save' %}"
+      x-data="giftTracker({{ recipients|tojson }}, {{ items|length }})">
   {% csrf_token %}
   <input type="hidden" name="item_count" value="{{ items|length }}">
   <input type="hidden" name="source" value="qr">
@@ -25,6 +26,53 @@
   <input type="hidden" name="receipt_total" value="{{ receipt.total|unlocalize }}">
   <input type="hidden" name="legal_name" value="{{ receipt.org_legal_name }}">
   <input type="hidden" name="qr_url" value="{{ source_qr_url }}">
+  <input type="hidden" name="for_recipient" :value="forRecipient ?? ''">
+
+  {# ── "For:" chip ── #}
+  <div class="d-flex align-items-center gap-2 mb-3 position-relative">
+    <span class="text-muted small">Для:</span>
+    <button type="button"
+            class="btn btn-sm"
+            :class="forRecipient ? 'btn-warning' : 'btn-outline-secondary'"
+            @click="showPicker = !showPicker">
+      <span x-text="forRecipient ?? 'Себе'"></span>
+      <i class="bi bi-chevron-down ms-1"></i>
+    </button>
+
+    <div x-show="showPicker" x-cloak
+         @click.outside="showPicker = false"
+         class="card shadow position-absolute z-3 p-2 mt-1"
+         style="top:100%; left:2.5rem; min-width:200px;">
+
+      <button type="button" class="btn btn-sm btn-light text-start w-100 mb-1"
+              @click="selectMyself()">
+        👤 Себе
+      </button>
+
+      <template x-for="r in recipients" :key="r">
+        <button type="button"
+                class="btn btn-sm text-start w-100 mb-1"
+                :class="forRecipient === r ? 'btn-warning' : 'btn-light'"
+                @click="selectRecipient(r)"
+                x-text="'🎁 ' + r">
+        </button>
+      </template>
+
+      <template x-if="!showAddNew">
+        <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-1"
+                @click="showAddNew = true">+ Додати</button>
+      </template>
+      <template x-if="showAddNew">
+        <div class="d-flex gap-1 mt-1">
+          <input x-model="newLabel" type="text" class="form-control form-control-sm"
+                 placeholder="Мама, Друзі…"
+                 @keydown.enter.prevent="addRecipient()">
+          <button type="button" class="btn btn-sm btn-primary"
+                  @click="addRecipient()">✓</button>
+        </div>
+      </template>
+    </div>
+  </div>
 
   <div class="card mb-3">
     <div class="card-body">
@@ -53,14 +101,16 @@
               <th style="width:90px">Ціна</th>
               <th style="width:90px">Сума</th>
               <th style="width:160px">Категорія</th>
+              <th x-show="isGiftReceipt()" x-cloak style="width:44px"></th>
             </tr>
           </thead>
           <tbody>
             {% for it in items %}
-            <tr x-data="{ qty: {{ it.qty|unlocalize }}, price: {{ it.unit_price|unlocalize }} }"
-                {% if not it.suggested_category_id %}class="table-warning"{% endif %}>
+            <tr x-data="{ idx: {{ forloop.counter0 }}, qty: {{ it.qty|unlocalize }}, price: {{ it.unit_price|unlocalize }} }"
+                :class="{ 'table-warning': itemRecipients[idx] !== null || {{ 'false' if it.suggested_category_id else 'true' }} }">
               <input type="hidden" name="barcode_{{ forloop.counter0 }}" value="{{ it.barcode }}">
               <input type="hidden" name="code_{{ forloop.counter0 }}" value="{{ it.code }}">
+              <input type="hidden" :name="'item_for_recipient_' + idx" :value="itemRecipients[idx] ?? ''">
               <td><input type="text" name="name_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ it.name }}"></td>
               <td><input type="number" step="0.001" name="qty_{{ forloop.counter0 }}" class="form-control form-control-sm" x-model.number="qty" value="{{ it.qty|unlocalize }}"></td>
               <td>
@@ -83,6 +133,14 @@
                   {% endfor %}
                 </select>
               </td>
+              <td x-show="isGiftReceipt()" x-cloak class="text-center">
+                <template x-if="itemRecipients[idx] !== null">
+                  <button type="button" class="btn btn-sm btn-outline-secondary" title="Повернути до особистих" @click="rescueItem(idx)">👤</button>
+                </template>
+                <template x-if="itemRecipients[idx] === null">
+                  <button type="button" class="btn btn-sm btn-outline-warning" title="Позначити як подарунок" @click="giftItem(idx)">🎁</button>
+                </template>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -103,6 +161,44 @@
     </div>
   </div>
 </form>
+
+<script>
+function giftTracker(recipients, itemCount) {
+  return {
+    recipients,
+    forRecipient: null,
+    itemRecipients: Array.from({ length: itemCount }, () => null),
+    showPicker: false,
+    showAddNew: false,
+    newLabel: '',
+
+    selectMyself() {
+      this.forRecipient = null;
+      this.itemRecipients = this.itemRecipients.map(() => null);
+      this.showPicker = false;
+    },
+
+    selectRecipient(name) {
+      this.forRecipient = name;
+      this.itemRecipients = this.itemRecipients.map(() => name);
+      this.showPicker = false;
+    },
+
+    addRecipient() {
+      const name = this.newLabel.trim();
+      if (!name) return;
+      if (!this.recipients.includes(name)) this.recipients.push(name);
+      this.selectRecipient(name);
+      this.newLabel = '';
+      this.showAddNew = false;
+    },
+
+    rescueItem(i) { this.itemRecipients[i] = null; },
+    giftItem(i)   { this.itemRecipients[i] = this.forRecipient; },
+    isGiftReceipt() { return this.forRecipient !== null; },
+  }
+}
+</script>
 
 {% else %}
 

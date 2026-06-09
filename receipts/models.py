@@ -26,6 +26,18 @@ class UserProfile(models.Model):
         return self.nickname or self.user.username
 
 
+class Recipient(models.Model):
+    """Free-form label for gift spending: "Mom", "Parents", "Friends", etc."""
+    name = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ["name"]
+
+
 class Store(models.Model):
     fiscal_rro = models.CharField(max_length=32, unique=True, db_index=True)
     legal_name = models.CharField(max_length=255, blank=True)
@@ -57,6 +69,9 @@ class Receipt(models.Model):
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     source = models.CharField(max_length=16, default="qr")  # qr | xml | manual
     qr_url = models.URLField(max_length=512, blank=True)
+    for_recipient = models.ForeignKey(
+        "Recipient", null=True, blank=True, on_delete=models.SET_NULL, related_name="receipts"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -83,6 +98,9 @@ class Item(models.Model):
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     category = models.ForeignKey(Category, null=True, blank=True,
                                  on_delete=models.SET_NULL, related_name="items")
+    for_recipient = models.ForeignKey(
+        "Recipient", null=True, blank=True, on_delete=models.SET_NULL, related_name="items"
+    )
 
     def __str__(self):
         return f"{self.name} ({self.qty} {self.unit})"

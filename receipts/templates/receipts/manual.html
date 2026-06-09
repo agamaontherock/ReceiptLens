@@ -1,15 +1,53 @@
 {% extends "receipts/base.html" %}
+{% load receipt_filters %}
 {% block title %}Ввести вручну — ReceiptLens{% endblock %}
 
 {% block content %}
 <h2 class="mb-3">Ввести чек вручну</h2>
 
-<form method="post" action="{% url 'receipts_save' %}" x-data="manualForm()">
+<form method="post" action="{% url 'receipts_save' %}"
+      x-data="manualForm({{ recipients|tojson }})">
   {% csrf_token %}
   <input type="hidden" name="source" value="manual">
   <input type="hidden" :name="'item_count'" :value="rows.length">
   <input type="hidden" name="fiscal_rro" value="manual">
   <input type="hidden" name="legal_name" value="">
+  <input type="hidden" name="for_recipient" :value="forRecipient ?? ''">
+
+  {# ── "For:" chip ── #}
+  <div class="d-flex align-items-center gap-2 mb-3 position-relative">
+    <span class="text-muted small">Для:</span>
+    <button type="button" class="btn btn-sm"
+            :class="forRecipient ? 'btn-warning' : 'btn-outline-secondary'"
+            @click="showPicker = !showPicker">
+      <span x-text="forRecipient ?? 'Себе'"></span>
+      <i class="bi bi-chevron-down ms-1"></i>
+    </button>
+    <div x-show="showPicker" x-cloak @click.outside="showPicker = false"
+         class="card shadow position-absolute z-3 p-2 mt-1"
+         style="top:100%; left:2.5rem; min-width:200px;">
+      <button type="button" class="btn btn-sm btn-light text-start w-100 mb-1"
+              @click="forRecipient = null; showPicker = false">👤 Себе</button>
+      <template x-for="r in recipients" :key="r">
+        <button type="button" class="btn btn-sm text-start w-100 mb-1"
+                :class="forRecipient === r ? 'btn-warning' : 'btn-light'"
+                @click="forRecipient = r; showPicker = false"
+                x-text="'🎁 ' + r"></button>
+      </template>
+      <template x-if="!showAddNew">
+        <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-1"
+                @click="showAddNew = true">+ Додати</button>
+      </template>
+      <template x-if="showAddNew">
+        <div class="d-flex gap-1 mt-1">
+          <input x-model="newLabel" type="text" class="form-control form-control-sm"
+                 placeholder="Мама, Друзі…"
+                 @keydown.enter.prevent="addRecipient()">
+          <button type="button" class="btn btn-sm btn-primary" @click="addRecipient()">✓</button>
+        </div>
+      </template>
+    </div>
+  </div>
 
   <div class="card mb-3">
     <div class="card-body">
@@ -54,6 +92,7 @@
               <tr>
                 <input type="hidden" :name="'barcode_' + i" value="">
                 <input type="hidden" :name="'code_' + i" value="">
+                <input type="hidden" :name="'item_for_recipient_' + i" :value="forRecipient ?? ''">
                 <td>
                   <input type="text" :name="'name_' + i" class="form-control form-control-sm"
                          x-model="row.name" placeholder="Назва товару">
@@ -110,11 +149,25 @@
 
 {% block extra_scripts %}
 <script>
-function manualForm() {
+function manualForm(recipients) {
   return {
     rows: [{ id: 1, name: '', qty: 1, unit: 'pcs', price: 0 }],
     _nextId: 2,
-    addRow() { this.rows.push({ id: this._nextId++, name: '', qty: 1, unit: 'pcs', price: 0 }); }
+    addRow() { this.rows.push({ id: this._nextId++, name: '', qty: 1, unit: 'pcs', price: 0 }); },
+    recipients,
+    forRecipient: null,
+    showPicker: false,
+    showAddNew: false,
+    newLabel: '',
+    addRecipient() {
+      const name = this.newLabel.trim();
+      if (!name) return;
+      if (!this.recipients.includes(name)) this.recipients.push(name);
+      this.forRecipient = name;
+      this.showPicker = false;
+      this.newLabel = '';
+      this.showAddNew = false;
+    },
   }
 }
 </script>
