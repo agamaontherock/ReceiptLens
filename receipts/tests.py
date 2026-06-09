@@ -510,3 +510,65 @@ class ReceiptsParseViewTests(TestCase):
                        "?id=175285&fn=4000935353&sm=316.66&date=20260602&time=211044"},
         )
         self.assertEqual(PendingImport.objects.count(), 0)
+
+
+# ---------------------------------------------------------------------------
+# Manual receipt save — store isolation
+# ---------------------------------------------------------------------------
+
+class ManualReceiptStoreTests(TestCase):
+    """
+    Saving a manual receipt must never rename the store of a previously saved
+    manual receipt (regression: all manual receipts shared fiscal_rro="manual",
+    so update_or_create would overwrite display_name on every save).
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="manual@ex.com", password="pw")
+        self.client = Client()
+        self.client.login(username="manual@ex.com", password="pw")
+
+    def _post_manual(self, shop_name, total="10.00"):
+        return self.client.post(reverse("receipts_save"), {
+            "source": "manual",
+            "fiscal_rro": "manual",
+            "display_name": shop_name,
+            "legal_name": "",
+            "check_id": "",
+            "fn": "",
+            "receipt_datetime": "2026-06-01T12:00",
+            "receipt_total": total,
+            "item_count": "1",
+            "name_0": "Test item",
+            "qty_0": "1",
+            "unit_0": "pcs",
+            "price_0": total,
+            "total_0": total,
+            "barcode_0": "",
+            "code_0": "",
+            "item_for_recipient_0": "",
+        })
+
+    def test_second_manual_receipt_does_not_rename_first_store(self):
+        self._post_manual("Shop A")
+        self._post_manual("Shop B")
+
+        from receipts.models import Receipt
+        receipts = Receipt.objects.filter(user=self.user).order_by("pk")
+        self.assertEqual(receipts[0].store.display_name, "Shop A")
+        self.assertEqual(receipts[1].store.display_name, "Shop B")
+
+    def test_same_shop_name_reuses_store(self):
+        self._post_manual("Сільпо")
+        self._post_manual("Сільпо")
+
+        from receipts.models import Store
+        self.assertEqual(Store.objects.filter(fiscal_rro="manual:Сільпо").count(), 1)
+
+    def test_different_shop_names_create_separate_stores(self):
+        self._post_manual("АТБ")
+        self._post_manual("Novus")
+
+        from receipts.models import Store
+        self.assertTrue(Store.objects.filter(fiscal_rro="manual:АТБ").exists())
+        self.assertTrue(Store.objects.filter(fiscal_rro="manual:Novus").exists())

@@ -235,10 +235,19 @@ def receipts_save(request):
             messages.info(request, "Цей чек вже збережено раніше.")
             return redirect("receipt_detail", pk=existing.pk)
 
-    store, _ = Store.objects.update_or_create(
-        fiscal_rro=fiscal_rro,
-        defaults={"legal_name": legal_name, "display_name": display_name},
-    )
+    if source == "manual":
+        # Manual receipts have no real RRO; key the store by shop name so that
+        # saving a receipt for "Shop B" never overwrites the store record for "Shop A".
+        manual_key = f"manual:{display_name}"[:32]
+        store, _ = Store.objects.get_or_create(
+            fiscal_rro=manual_key,
+            defaults={"display_name": display_name, "legal_name": ""},
+        )
+    else:
+        store, _ = Store.objects.update_or_create(
+            fiscal_rro=fiscal_rro,
+            defaults={"legal_name": legal_name, "display_name": display_name},
+        )
 
     receipt_dt = parse_datetime(receipt_datetime_str)
     if receipt_dt is None:
