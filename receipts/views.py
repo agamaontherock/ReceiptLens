@@ -84,8 +84,10 @@ def dashboard(request):
               .select_related("store")
               .order_by("-datetime")[:10])
 
-    now = timezone.now()
-    this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # Use local time for month boundaries so that e.g. a receipt at 01:00 Kyiv
+    # on June 1st is counted in June, not May (UTC midnight ≠ local midnight).
+    local_now = timezone.localtime(timezone.now())
+    this_month_start = local_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     last_month_end = this_month_start - datetime.timedelta(seconds=1)
     last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
@@ -124,7 +126,7 @@ def dashboard(request):
         "pending_count": pending_count,
         "gift_this_month": gift_this_month,
         "this_month_from": this_month_start.date().isoformat(),
-        "this_month_to": now.date().isoformat(),
+        "this_month_to": local_now.date().isoformat(),
         "last_month_from": last_month_start.date().isoformat(),
         "last_month_to": last_month_end.date().isoformat(),
     })
