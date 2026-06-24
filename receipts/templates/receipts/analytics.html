@@ -3,6 +3,26 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+.flip-wrap { perspective: 1200px; }
+.flip-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform .45s cubic-bezier(.4,0,.2,1);
+}
+.flip-inner.is-flipped { transform: rotateY(180deg); }
+.flip-front,
+.flip-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+  overflow-y: auto;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -42,7 +62,7 @@
   </a>
 </div>
 
-{# Recipient filter — shown in gifts/all mode when labels exist #}
+{# Recipient filter #}
 {% if mode != 'personal' and recipients %}
 <div class="d-flex gap-2 flex-wrap mb-4 align-items-center">
   <span class="text-muted small">Для:</span>
@@ -60,36 +80,162 @@
 {% endif %}
 
 <div class="row g-4">
+
+  {# ── By categories ── #}
   <div class="col-md-6">
     <div class="card h-100">
-      <div class="card-body">
-        <h5 class="card-title">За категоріями</h5>
-        <canvas id="catChart"></canvas>
+      <div class="card-body" x-data="{ flipped: false }">
+        <div class="flip-wrap">
+          <div class="flip-inner" :class="{ 'is-flipped': flipped }">
+
+            <div class="flip-front">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="card-title mb-0">За категоріями</h5>
+                <button @click.stop="flipped = true"
+                        class="btn btn-sm btn-outline-secondary" title="Показати таблицю">
+                  <i class="bi bi-table"></i>
+                </button>
+              </div>
+              <canvas id="catChart"></canvas>
+            </div>
+
+            <div class="flip-back">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="card-title mb-0">За категоріями</h5>
+                <button @click.stop="flipped = false"
+                        class="btn btn-sm btn-outline-secondary" title="Показати діаграму">
+                  <i class="bi bi-pie-chart"></i>
+                </button>
+              </div>
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr><th>Категорія</th><th class="text-end">Сума</th><th class="text-end">%</th></tr>
+                </thead>
+                <tbody>
+                  {% for row in cat_table %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td class="text-end text-nowrap">{{ row.value|floatformat:2 }} ₴</td>
+                    <td class="text-end text-nowrap">{{ row.pct|floatformat:1 }}%</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="3" class="text-muted text-center py-3">Немає даних</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
   </div>
+
+  {# ── By stores ── #}
   <div class="col-md-6">
     <div class="card h-100">
-      <div class="card-body">
-        <h5 class="card-title">За магазинами</h5>
-        <canvas id="storeChart"></canvas>
+      <div class="card-body" x-data="{ flipped: false }">
+        <div class="flip-wrap">
+          <div class="flip-inner" :class="{ 'is-flipped': flipped }">
+
+            <div class="flip-front">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="card-title mb-0">За магазинами</h5>
+                <button @click.stop="flipped = true"
+                        class="btn btn-sm btn-outline-secondary" title="Показати таблицю">
+                  <i class="bi bi-table"></i>
+                </button>
+              </div>
+              <canvas id="storeChart"></canvas>
+            </div>
+
+            <div class="flip-back">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="card-title mb-0">За магазинами</h5>
+                <button @click.stop="flipped = false"
+                        class="btn btn-sm btn-outline-secondary" title="Показати діаграму">
+                  <i class="bi bi-bar-chart"></i>
+                </button>
+              </div>
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr><th>Магазин</th><th class="text-end">Сума</th><th class="text-end">%</th></tr>
+                </thead>
+                <tbody>
+                  {% for row in store_table %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td class="text-end text-nowrap">{{ row.value|floatformat:2 }} ₴</td>
+                    <td class="text-end text-nowrap">{{ row.pct|floatformat:1 }}%</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="3" class="text-muted text-center py-3">Немає даних</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
   </div>
+
+  {# ── By months ── #}
   <div class="col-12">
     <div class="card">
-      <div class="card-body">
-        <h5 class="card-title">Витрати по місяцях</h5>
-        <canvas id="monthChart"></canvas>
+      <div class="card-body" x-data="{ flipped: false }">
+        <div class="flip-wrap">
+          <div class="flip-inner" :class="{ 'is-flipped': flipped }">
+
+            <div class="flip-front">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="card-title mb-0">Витрати по місяцях</h5>
+                <button @click.stop="flipped = true"
+                        class="btn btn-sm btn-outline-secondary" title="Показати таблицю">
+                  <i class="bi bi-table"></i>
+                </button>
+              </div>
+              <canvas id="monthChart"></canvas>
+            </div>
+
+            <div class="flip-back">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="card-title mb-0">Витрати по місяцях</h5>
+                <button @click.stop="flipped = false"
+                        class="btn btn-sm btn-outline-secondary" title="Показати діаграму">
+                  <i class="bi bi-graph-up"></i>
+                </button>
+              </div>
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr><th>Місяць</th><th class="text-end">Сума</th></tr>
+                </thead>
+                <tbody>
+                  {% for row in month_table %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td class="text-end text-nowrap">{{ row.value|floatformat:2 }} ₴</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="2" class="text-muted text-center py-3">Немає даних</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
   </div>
+
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-const CAT_DATA = {{ cat_data|safe }};
+const CAT_DATA   = {{ cat_data|safe }};
 const STORE_DATA = {{ store_data|safe }};
 const MONTH_DATA = {{ month_data|safe }};
 
@@ -120,14 +266,14 @@ function mkChart(id, type, data, extra) {
   });
 }
 
-mkChart('catChart', 'doughnut', CAT_DATA, {});
-mkChart('storeChart', 'bar', STORE_DATA, {
+mkChart('catChart',   'doughnut', CAT_DATA,   {});
+mkChart('storeChart', 'bar',      STORE_DATA, {
   plugins: { legend: { display: false } },
-  scales: { y: { ticks: { callback: v => v + ' ₴' } } }
+  scales:  { y: { ticks: { callback: v => v + ' ₴' } } }
 });
-mkChart('monthChart', 'line', MONTH_DATA, {
+mkChart('monthChart', 'line',     MONTH_DATA, {
   plugins: { legend: { display: false } },
-  scales: { y: { ticks: { callback: v => v + ' ₴' } } }
+  scales:  { y: { ticks: { callback: v => v + ' ₴' } } }
 });
 </script>
 {% endblock %}

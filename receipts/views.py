@@ -626,22 +626,42 @@ def analytics(request):
 
     recipients = Recipient.objects.all()
 
+    def _pct(value, total):
+        return round(value / total * 100, 1) if total else 0
+
+    cat_values = [float(r["total"]) for r in by_category]
+    cat_total = sum(cat_values) or 0
+    cat_table = [
+        {"label": r["category__name"], "value": v, "pct": _pct(v, cat_total)}
+        for r, v in zip(by_category, cat_values)
+    ]
+
+    store_values = [float(r["total"]) for r in by_store]
+    store_total = sum(store_values) or 0
+    store_table = [
+        {"label": store_label(r), "value": v, "pct": _pct(v, store_total)}
+        for r, v in zip(by_store, store_values)
+    ]
+
+    month_table = [
+        {"label": r["month"].strftime("%B %Y") if r["month"] else "—",
+         "value": float(r["total"])}
+        for r in by_month
+    ]
+
     return render(request, "receipts/analytics.html", {
         "from_date": from_date_str,
         "to_date": to_date_str,
         "mode": mode,
         "recipient_id": recipient_id,
         "recipients": recipients,
-        "cat_data": json.dumps({
-            "labels": [r["category__name"] for r in by_category],
-            "values": [float(r["total"]) for r in by_category],
-        }),
-        "store_data": json.dumps({
-            "labels": [store_label(r) for r in by_store],
-            "values": [float(r["total"]) for r in by_store],
-        }),
-        "month_data": json.dumps({
-            "labels": [r["month"].strftime("%Y-%m") if r["month"] else "" for r in by_month],
-            "values": [float(r["total"]) for r in by_month],
-        }),
+        "cat_data": json.dumps({"labels": [r["label"] for r in cat_table],
+                                "values": [r["value"] for r in cat_table]}),
+        "store_data": json.dumps({"labels": [r["label"] for r in store_table],
+                                  "values": [r["value"] for r in store_table]}),
+        "month_data": json.dumps({"labels": [r["label"] for r in month_table],
+                                  "values": [r["value"] for r in month_table]}),
+        "cat_table": cat_table,
+        "store_table": store_table,
+        "month_table": month_table,
     })
