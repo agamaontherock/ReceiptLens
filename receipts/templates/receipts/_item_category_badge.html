@@ -1,0 +1,19 @@
+{% if item.category %}
+<span class="badge bg-info text-dark"
+      role="button"
+      hx-get="{% url 'item_set_category' item.pk %}?edit=1"
+      hx-target="closest td"
+      hx-swap="innerHTML"
+      title="Натисніть для зміни категорії">
+  {{ item.category.name }}
+</span>
+{% else %}
+<span class="badge bg-light text-muted border"
+      role="button"
+      hx-get="{% url 'item_set_category' item.pk %}?edit=1"
+      hx-target="closest td"
+      hx-swap="innerHTML"
+      title="Призначити категорію">
+  <i class="bi bi-tag"></i> —
+</span>
+{% endif %}

@@ -316,6 +316,24 @@ def receipt_detail(request, pk):
 
 
 @login_required
+def item_set_category(request, pk):
+    item = get_object_or_404(Item.objects.select_related("category"), pk=pk, receipt__user=request.user)
+    if request.method == "POST":
+        cat_id = request.POST.get("category_id") or None
+        item.category_id = int(cat_id) if cat_id else None
+        item.save(update_fields=["category"])
+        item = Item.objects.select_related("category").get(pk=pk)
+        return render(request, "receipts/_item_category_badge.html", {"item": item})
+    if request.GET.get("edit"):
+        categories = Category.objects.order_by("name")
+        return render(request, "receipts/_item_category_select.html", {
+            "item": item,
+            "categories": categories,
+        })
+    return render(request, "receipts/_item_category_badge.html", {"item": item})
+
+
+@login_required
 def receipt_delete(request, pk):
     receipt = get_object_or_404(Receipt, pk=pk, user=request.user)
     if request.method == "POST":

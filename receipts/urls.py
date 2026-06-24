@@ -11,6 +11,7 @@ urlpatterns = [
     path("receipts/export/", views.receipts_export_csv, name="receipts_export_csv"),
     path("receipts/<int:pk>/edit/", views.receipt_edit, name="receipt_edit"),
     path("receipts/<int:pk>/delete/", views.receipt_delete, name="receipt_delete"),
+    path("items/<int:pk>/category/", views.item_set_category, name="item_set_category"),
     path("pending-imports/", views.pending_imports, name="pending_imports"),
     path("pending-imports/save/", views.pending_import_save, name="pending_import_save"),
     path("pending-imports/<int:pk>/retry/", views.pending_import_retry, name="pending_import_retry"),

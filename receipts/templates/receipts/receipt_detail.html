@@ -73,13 +73,7 @@
         <td>{{ item.qty }} {{ item.unit }}</td>
         <td>{{ item.unit_price|floatformat:2 }} ₴</td>
         <td>{{ item.total|floatformat:2 }} ₴</td>
-        <td>
-          {% if item.category %}
-            <span class="badge bg-info text-dark">{{ item.category }}</span>
-          {% else %}
-            <span class="text-muted small">—</span>
-          {% endif %}
-        </td>
+        <td>{% include "receipts/_item_category_badge.html" %}</td>
       </tr>
       {% endfor %}
     </tbody>

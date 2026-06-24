@@ -74,6 +74,9 @@
   <script src="https://unpkg.com/htmx.org@2" defer></script>
   <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
   {% block extra_scripts %}{% endblock %}
-  <script>document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll("[data-bs-toggle='tooltip']").forEach(el=>new bootstrap.Tooltip(el))});</script>
+  <script>
+    document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll("[data-bs-toggle='tooltip']").forEach(el=>new bootstrap.Tooltip(el))});
+    document.addEventListener("htmx:configRequest", (e) => { e.detail.headers["X-CSRFToken"] = "{{ csrf_token }}"; });
+  </script>
 </body>
 </html>

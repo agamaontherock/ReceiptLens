@@ -1,0 +1,21 @@
+<div class="d-flex gap-1 align-items-center">
+  <select name="category_id"
+          hx-post="{% url 'item_set_category' item.pk %}"
+          hx-target="closest td"
+          hx-swap="innerHTML"
+          hx-trigger="change"
+          class="form-select form-select-sm"
+          style="min-width:130px">
+    <option value="" {% if not item.category_id %}selected{% endif %}>—</option>
+    {% for cat in categories %}
+    <option value="{{ cat.pk }}" {% if item.category_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-sm btn-outline-secondary"
+          hx-get="{% url 'item_set_category' item.pk %}"
+          hx-target="closest td"
+          hx-swap="innerHTML"
+          title="Скасувати">
+    <i class="bi bi-x-lg"></i>
+  </button>
+</div>
