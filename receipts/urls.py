@@ -17,6 +17,7 @@ urlpatterns = [
     path("pending-imports/<int:pk>/delete/", views.pending_import_delete, name="pending_import_delete"),
     path("manual/", views.manual, name="manual"),
     path("analytics/", views.analytics, name="analytics"),
+    path("analytics/category/<int:pk>/", views.category_items, name="category_items"),
     path("profile/", views.profile, name="profile"),
     path("auth/register/", views.register, name="register"),
     path("auth/login/", views.login_view, name="login"),

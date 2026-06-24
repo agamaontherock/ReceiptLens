@@ -581,7 +581,7 @@ def analytics(request):
 
     by_category = list(
         base_items.exclude(category=None)
-        .values("category__name")
+        .values("category__id", "category__name")
         .annotate(total=Sum("total"))
         .order_by("-total")
     )
@@ -632,7 +632,7 @@ def analytics(request):
     cat_values = [float(r["total"]) for r in by_category]
     cat_total = sum(cat_values) or 0
     cat_table = [
-        {"label": r["category__name"], "value": v, "pct": _pct(v, cat_total)}
+        {"pk": r["category__id"], "label": r["category__name"], "value": v, "pct": _pct(v, cat_total)}
         for r, v in zip(by_category, cat_values)
     ]
 
@@ -664,4 +664,79 @@ def analytics(request):
         "cat_table": cat_table,
         "store_table": store_table,
         "month_table": month_table,
+    })
+
+
+@login_required
+def category_items(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    today = timezone.now().date()
+    from_date_str = request.GET.get("from_date", today.replace(day=1).isoformat())
+    to_date_str = request.GET.get("to_date", today.isoformat())
+    mode = request.GET.get("mode", "all")
+
+    try:
+        from_date = datetime.date.fromisoformat(from_date_str)
+        to_date = datetime.date.fromisoformat(to_date_str)
+    except ValueError:
+        from_date = today.replace(day=1)
+        to_date = today
+
+    base_items = Item.objects.filter(
+        receipt__user=request.user,
+        category=category,
+        receipt__datetime__date__gte=from_date,
+        receipt__datetime__date__lte=to_date,
+    )
+
+    if mode == "personal":
+        base_items = base_items.filter(for_recipient__isnull=True)
+    elif mode == "gifts":
+        base_items = base_items.filter(for_recipient__isnull=False)
+
+    aggregated = list(
+        base_items
+        .values("name", "unit")
+        .annotate(total_qty=Sum("qty"), total_spent=Sum("total"))
+        .order_by("-total_spent")
+    )
+
+    detail_items = list(
+        base_items
+        .select_related("receipt__store")
+        .order_by("receipt__datetime")
+    )
+
+    receipts_map = defaultdict(list)
+    for item in detail_items:
+        key = f"{item.name}||{item.unit}"
+        receipts_map[key].append({
+            "date": timezone.localtime(item.receipt.datetime).strftime("%d.%m.%Y %H:%M"),
+            "store": str(item.receipt.store),
+            "qty": float(item.qty),
+            "unit": item.unit,
+            "unit_price": float(item.unit_price),
+            "total": float(item.total),
+            "receipt_pk": item.receipt.pk,
+        })
+
+    rows = [
+        {
+            "name": agg["name"],
+            "unit": agg["unit"],
+            "total_qty": float(agg["total_qty"]),
+            "total_spent": float(agg["total_spent"]),
+            "receipts": receipts_map[f"{agg['name']}||{agg['unit']}"],
+        }
+        for agg in aggregated
+    ]
+
+    return render(request, "receipts/category_items.html", {
+        "category": category,
+        "from_date": from_date_str,
+        "to_date": to_date_str,
+        "mode": mode,
+        "rows": rows,
+        "rows_json": json.dumps(rows, ensure_ascii=False),
+        "total_spent": sum(r["total_spent"] for r in rows),
     })

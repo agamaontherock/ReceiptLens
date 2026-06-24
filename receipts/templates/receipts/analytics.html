@@ -114,7 +114,10 @@
                 <tbody>
                   {% for row in cat_table %}
                   <tr>
-                    <td>{{ row.label }}</td>
+                    <td>
+                      <a href="{% url 'category_items' row.pk %}?from_date={{ from_date }}&to_date={{ to_date }}&mode={{ mode }}"
+                         class="text-decoration-none">{{ row.label }}</a>
+                    </td>
                     <td class="text-end text-nowrap">{{ row.value|floatformat:2 }} ₴</td>
                     <td class="text-end text-nowrap">{{ row.pct|floatformat:1 }}%</td>
                   </tr>
