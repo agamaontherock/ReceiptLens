@@ -1,3 +1,4 @@
+import csv
 import datetime
 import json
 from collections import defaultdict
@@ -9,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -467,6 +469,68 @@ def receipt_edit(request, pk):
         "initial_rows": initial_rows,
         "initial_recipient": initial_recipient,
     })
+
+
+def _receipt_date_range(request):
+    """Return (from_date, to_date, from_str, to_str) in local time for list/export views."""
+    local_now = timezone.localtime(timezone.now())
+    from_str = request.GET.get("from_date", local_now.replace(day=1).date().isoformat())
+    to_str = request.GET.get("to_date", local_now.date().isoformat())
+    try:
+        from_date = datetime.date.fromisoformat(from_str)
+        to_date = datetime.date.fromisoformat(to_str)
+    except ValueError:
+        from_date = local_now.replace(day=1).date()
+        to_date = local_now.date()
+        from_str, to_str = from_date.isoformat(), to_date.isoformat()
+    return from_date, to_date, from_str, to_str
+
+
+def _receipts_for_range(user, from_date, to_date):
+    from_dt = timezone.make_aware(datetime.datetime.combine(from_date, datetime.time.min))
+    to_dt = timezone.make_aware(datetime.datetime.combine(to_date, datetime.time.max))
+    return (
+        Receipt.objects
+        .filter(user=user, datetime__gte=from_dt, datetime__lte=to_dt)
+        .select_related("store")
+        .order_by("-datetime")
+    )
+
+
+@login_required
+def receipts_list(request):
+    from_date, to_date, from_str, to_str = _receipt_date_range(request)
+    receipts = _receipts_for_range(request.user, from_date, to_date)
+    total = receipts.aggregate(s=Sum("total"))["s"] or 0
+    return render(request, "receipts/receipts_list.html", {
+        "receipts": receipts,
+        "from_date": from_str,
+        "to_date": to_str,
+        "grand_total": total,
+    })
+
+
+@login_required
+def receipts_export_csv(request):
+    from_date, to_date, from_str, to_str = _receipt_date_range(request)
+    receipts = _receipts_for_range(request.user, from_date, to_date)
+
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = (
+        f'attachment; filename="receipts_{from_str}_{to_str}.csv"'
+    )
+    response.write("﻿")  # UTF-8 BOM so Excel opens it correctly
+
+    writer = csv.writer(response)
+    writer.writerow(["Дата", "Магазин", "Сума (₴)"])
+    for r in receipts:
+        writer.writerow([
+            timezone.localtime(r.datetime).strftime("%d.%m.%Y %H:%M"),
+            str(r.store),
+            str(r.total),
+        ])
+
+    return response
 
 
 @login_required

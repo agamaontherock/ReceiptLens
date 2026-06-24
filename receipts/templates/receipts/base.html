@@ -25,6 +25,7 @@
           <li class="nav-item"><a class="nav-link" href="{% url 'scan' %}"><i class="bi bi-qr-code-scan"></i> Сканувати</a></li>
           {% if user.is_authenticated %}
             <li class="nav-item"><a class="nav-link" href="{% url 'manual' %}"><i class="bi bi-pencil-square"></i> Вручну</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'receipts_list' %}"><i class="bi bi-receipt"></i> Чеки</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'analytics' %}"><i class="bi bi-bar-chart-line"></i> Аналітика</a></li>
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
@@ -73,5 +74,6 @@
   <script src="https://unpkg.com/htmx.org@2" defer></script>
   <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
   {% block extra_scripts %}{% endblock %}
+  <script>document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll("[data-bs-toggle='tooltip']").forEach(el=>new bootstrap.Tooltip(el))});</script>
 </body>
 </html>

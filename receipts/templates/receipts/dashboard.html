@@ -62,7 +62,13 @@
 {% endif %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h4>Останні чеки</h4>
+  <h4 class="mb-0">
+    Нещодавні чеки
+    <span class="ms-1" data-bs-toggle="tooltip"
+          title="Показуються останні 10 чеків. Всі чеки доступні в аналітиці.">
+      <i class="bi bi-info-circle text-muted fs-6 align-middle"></i>
+    </span>
+  </h4>
   <a href="{% url 'scan' %}" class="btn btn-primary btn-sm">
     <i class="bi bi-qr-code-scan"></i> Новий чек
   </a>

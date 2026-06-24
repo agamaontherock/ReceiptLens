@@ -1,0 +1,68 @@
+{% extends "receipts/base.html" %}
+{% block title %}Всі чеки — ReceiptLens{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Всі чеки</h2>
+  <a href="{% url 'receipts_export_csv' %}?from_date={{ from_date }}&to_date={{ to_date }}"
+     class="btn btn-outline-success btn-sm">
+    <i class="bi bi-download"></i> Завантажити CSV
+  </a>
+</div>
+
+<form method="get" class="row g-2 mb-4 align-items-end">
+  <div class="col-auto">
+    <label class="form-label mb-1">Від</label>
+    <input type="date" name="from_date" class="form-control form-control-sm" value="{{ from_date }}">
+  </div>
+  <div class="col-auto">
+    <label class="form-label mb-1">До</label>
+    <input type="date" name="to_date" class="form-control form-control-sm" value="{{ to_date }}">
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-primary btn-sm">Застосувати</button>
+  </div>
+</form>
+
+{% if receipts %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>Дата</th>
+        <th>Магазин</th>
+        <th class="text-end">Сума</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in receipts %}
+      <tr>
+        <td class="text-nowrap">
+          <a href="{% url 'receipt_detail' r.pk %}" class="text-decoration-none">
+            {{ r.datetime|date:"d.m.Y H:i" }}
+          </a>
+        </td>
+        <td>
+          <a href="{% url 'receipt_detail' r.pk %}" class="text-decoration-none text-body">
+            {{ r.store }}
+          </a>
+        </td>
+        <td class="text-end fw-semibold text-nowrap">{{ r.total|floatformat:2 }} ₴</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="table-active fw-bold">
+        <td colspan="2">Разом ({{ receipts|length }} чеків)</td>
+        <td class="text-end text-nowrap">{{ grand_total|floatformat:2 }} ₴</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-receipt fs-1"></i>
+  <p class="mt-2">Немає чеків за обраний період.</p>
+</div>
+{% endif %}
+{% endblock %}
